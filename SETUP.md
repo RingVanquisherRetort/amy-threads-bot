@@ -10,7 +10,7 @@
 **Содержание**
 1. [Подготовка проекта](#1-подготовка-проекта)
 2. [Бренд — кто ты](#2-бренд--кто-ты)
-3. [Threads API](#3-threads-api)
+3. [Threads через Zernio](#3-threads-через-zernio)
 4. [Telegram-бот](#4-telegram-бот)
 5. [OpenRouter (LLM)](#5-openrouter-llm)
 6. [GitHub PAT (хранилище очереди)](#6-github-pat-хранилище-очереди)
@@ -51,33 +51,22 @@ BRAND_FOUNDER=""            # имя для постов от первого л�
 
 ---
 
-## 3. Threads API
+## 3. Threads через Zernio
 
-Threads нужен, чтобы публиковать посты и читать комментарии.
+Подключение Threads выполняется через Zernio, поэтому отдельный Meta access token в этом проекте не используется.
 
-1. Зайди на <https://developers.facebook.com/> → **My Apps** → **Create App**.
-2. Тип приложения — выбери с доступом к **Threads API** (Use case → Threads).
-3. В настройках приложения подключи продукт **Threads** и добавь разрешения:
-   `threads_basic`, `threads_content_publish`, `threads_manage_replies`,
-   `threads_read_replies`.
-4. Добавь свой Threads-аккаунт как тестового пользователя (если приложение в
-   режиме разработки).
-5. Сгенерируй **long-lived access token** (живёт ~60 дней).
-6. Узнай свой **числовой user id** — подставь токен в этот адрес и открой в
-   браузере (в ответе будет поле `id`):
-   ```
-   https://graph.threads.net/v1.0/me?fields=id,username&access_token=ТВОЙ_ТОКЕН
-   ```
+1. Подключи аккаунт Threads в <https://zernio.com/>.
+2. Создай API key в кабинете Zernio.
+3. Скопируй Account ID подключённого Threads-аккаунта.
 
-Впиши в `.env`:
+В Vercel добавь переменные:
 ```
-THREADS_ACCESS_TOKEN="EAAB...твой токен"
-THREADS_USER_ID="1784xxxxxxxxxxx"
+ZERNIO_API_KEY="твой_API_key"
+ZERNIO_ACCOUNT_ID="ID_подключённого_аккаунта"
 THREADS_USERNAME="твой-хэндл-без-собаки"
 ```
 
-> Токен живёт 60 дней, но бот умеет обновлять его сам — см.
-> [раздел 11](#11-обслуживание). Первый токен всё равно заводишь руками.
+`ZERNIO_API_KEY` и `ZERNIO_ACCOUNT_ID` - разные значения. API key нельзя подставлять вместо Threads access token. Срок действия токена самого Threads-аккаунта проверяется через Zernio.
 
 ---
 
@@ -159,14 +148,14 @@ UPSTASH_REDIS_REST_TOKEN="..."
 3. В **Settings → Environment Variables** перенеси ВСЕ переменные из `.env`.
 4. Задеплой.
 
-`CRON_SECRET` Vercel создаст сам, когда включишь cron (следующий шаг).
+`CRON_SECRET` задай самостоятельно как длинную случайную строку и используй одно и то же значение в Vercel и GitHub Actions.
 
 ---
 
 ## 9. Расписание (cron)
 
-Расписание уже описано в `vercel.json` (автопостинг, обновление токена,
-недельный анализ). Vercel подхватит его при деплое.
+Расписание описано в `vercel.json` (автопостинг, пополнение очереди,
+недельный анализ). Vercel подхватит его при деплое. Автопубликация дополнительно заблокирована защитными переменными до отдельного подтверждения владельца.
 
 Часть задач (слежение за комментами каждые 5 минут, публикация одобренных
 ответов) вынесена в **GitHub Actions** — потому что бесплатный тариф Vercel
