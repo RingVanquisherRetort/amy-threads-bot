@@ -356,9 +356,11 @@ async function handlePostEditCallback(
         await deletePost(pe.threads_post_id);
       } catch (delErr: any) {
         await sendTelegram(
-          `⚠️ Не смогла удалить старый пост: <pre>${String(delErr).slice(0, 300)}</pre>\n` +
-            `Новый опубликую — старый придётся удалить вручную через Threads.`
+          `⛔ Переопубликация отменена: старый пост не удалён.\n` +
+            `Чтобы не создавать дубликат, новый пост не отправляла. Удали старый пост вручную в Threads и повтори действие.\n` +
+            `Причина: <pre>${String(delErr).slice(0, 300)}</pre>`
         );
+        return;
       }
       const published = await publishText(pe.current_text_en);
       pe.status = 'done';
@@ -1187,8 +1189,11 @@ async function handlePhotoCallback(
         await deletePost(oldPostId);
       } catch (delErr: any) {
         await sendTelegram(
-          `⚠️ Старый пост удалить не вышло (видимо >24ч):\n<pre>${escape(String(delErr).slice(0, 300))}</pre>\nПубликую новый — старый удали вручную.`
+          `⛔ Замена фото отменена: старый пост не удалён, поэтому новый не публиковала.\n` +
+          `Удали старый пост вручную в Threads и повтори действие.\n` +
+          `Причина: <pre>${escape(String(delErr).slice(0, 300))}</pre>`
         );
+        return;
       }
 
       // Публикуем с фото
