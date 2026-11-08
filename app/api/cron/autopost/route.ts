@@ -29,9 +29,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
-  // Пауза автопостинга. Установить env THREADS_AUTOPOST_PAUSED=1 в Vercel,
-  // чтобы остановить публикации без отключения cron. Снять — удалить переменную.
-  if (process.env.THREADS_AUTOPOST_PAUSED === '1') {
+  // SAFETY LOCK: автопубликация отключена в коде до завершения миграции на Zernio
+  // и отдельного подтверждения владельца. Одной env-переменной недостаточно.
+  if (true || process.env.THREADS_AUTOPOST_PAUSED === '1') {
     return NextResponse.json({ status: 'paused' });
   }
 
