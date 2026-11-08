@@ -31,7 +31,7 @@ export async function GET(req: Request) {
 
   // SAFETY LOCK: автопубликация отключена в коде до завершения миграции на Zernio
   // и отдельного подтверждения владельца. Одной env-переменной недостаточно.
-  if (true || process.env.THREADS_AUTOPOST_PAUSED === '1') {
+  if (process.env.ZERNIO_MIGRATION_COMPLETE !== '1' || process.env.THREADS_AUTOPOST_PAUSED === '1') {
     return NextResponse.json({ status: 'paused' });
   }
 
