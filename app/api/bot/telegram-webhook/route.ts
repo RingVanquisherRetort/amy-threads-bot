@@ -120,42 +120,17 @@ export async function GET(req: Request) {
     });
   }
 
-  // Защищаем установку webhook отдельным секретом. Не оставляем публичный
-  // GET-эндпоинт, который любой посетитель мог бы использовать для перенастройки бота.
-  const setupSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
-  if (!setupSecret || url.searchParams.get('key') !== setupSecret) {
-    return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
-  }
-
-  if (!process.env.TELEGRAM_BOT_TOKEN) {
-    return NextResponse.json({ ok: false, error: 'TELEGRAM_BOT_TOKEN не задан' }, { status: 500 });
-  }
-
-  // Адрес, на который Telegram будет слать апдейты — это текущий деплой.
-  // Берём из заголовков запроса (works и на Vercel, и на другом хостинге).
-  const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host');
-  const proto = req.headers.get('x-forwarded-proto') ?? 'https';
-  const base = process.env.PUBLIC_MEDIA_BASE_URL?.replace(/\/$/, '') ?? `${proto}://${host}`;
-  const webhookUrl = `${base}/api/bot/telegram-webhook`;
-
-  // Секрет для проверки подлинности апдейтов. Если задан TELEGRAM_WEBHOOK_SECRET —
-  // используем его; иначе подключаем без секрета (менее безопасно, но рабоче).
-  const secret = process.env.TELEGRAM_WEBHOOK_SECRET ?? '';
-
-  try {
-    await setWebhook(webhookUrl, secret);
-    return NextResponse.json({
-      ok: true,
-      message: 'Webhook подключён. Напиши боту /help — он должен ответить.',
-      webhook_url: webhookUrl,
-      secret_used: Boolean(secret),
-    });
-  } catch (err: any) {
-    return NextResponse.json(
-      { ok: false, error: err?.message ?? String(err) },
-      { status: 500 }
-    );
-  }
+  // Форма передаёт секрет в теле POST, не в URL и не в истории браузера.
+  return new Response(`<!doctype html>
+<html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Подключение Telegram</title>
+<body style="font:16px system-ui;max-width:520px;margin:40px auto;padding:0 20px">
+<h2>Подключить Telegram webhook</h2>
+<p>Введи значение TELEGRAM_WEBHOOK_SECRET, сохранённое в Vercel. Оно отправится защищённым POST-запросом и не попадёт в адресную строку.</p>
+<form method="post" action="/api/bot/telegram-webhook/setup">
+<input type="password" name="secret" autocomplete="off" required style="box-sizing:border-box;width:100%;padding:14px;font-size:16px">
+<button style="margin-top:16px;padding:14px 20px;font-size:16px">Подключить Telegram</button>
+</form></body></html>`, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
 }
 
 export async function POST(req: Request) {
