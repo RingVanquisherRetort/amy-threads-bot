@@ -12,12 +12,9 @@ function assertText(text: string) {
 
 export async function publishText(text: string, replyToId?: string): Promise<PublishedPost> {
   assertText(text);
-  // replyToId is a Threads post ID; comment replies must use createThreadsComment
-  // with both the post ID and comment ID (see publish-pending route).
-  return createThreadsPost(text, replyToId ? [] : []).then((p) => {
-    if (replyToId) throw new Error('Для ответа на комментарий нужны postId и commentId; используйте createThreadsComment');
-    return { id: p.id, permalink: p.permalink, timestamp: p.timestamp };
-  });
+  if (replyToId) throw new Error('Для ответа на комментарий нужны postId и commentId; используйте createThreadsComment');
+  const p = await createThreadsPost(text);
+  return { id: p.id, permalink: p.permalink, timestamp: p.timestamp };
 }
 
 export async function publishImage(text: string, imageUrl: string, _replyToId?: string, _altText?: string): Promise<PublishedPost> {
@@ -51,12 +48,9 @@ export async function publish(text: string, media: MediaItem[] = [], replyToId?:
 export async function publishThread(posts: string[]): Promise<PublishedPost> {
   if (!posts.length) throw new Error('Пустой список постов');
   if (posts.some((post) => post.length > 500)) throw new Error('Каждая часть треда Threads должна быть не длиннее 500 символов');
-  // Publish as a single Zernio thread sequence to avoid partially published chains.
+  // Publish all parts as one Zernio thread sequence.
   const { createThreadsPost } = await import('./zernio');
-  const p = await createThreadsPost(posts[0], []);
-  if (posts.length > 1) {
-    throw new Error('Многочастный тред требует threadItems; публикация остановлена, чтобы не отправить неполную цепочку');
-  }
+  const p = await createThreadsPost(posts[0], [], posts.map((content) => ({ content })));
   return { id: p.id, permalink: p.permalink, timestamp: p.timestamp };
 }
 
