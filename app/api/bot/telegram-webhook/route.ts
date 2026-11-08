@@ -68,6 +68,11 @@ export const maxDuration = 60;
 
 const PUBLISH_DELAY_MIN = 5;
 
+// Единый предохранитель для всех ручных кнопок публикации.
+function isThreadsPublishingEnabled(): boolean {
+  return process.env.ZERNIO_MIGRATION_COMPLETE === '1' && process.env.THREADS_AUTOPOST_PAUSED !== '1';
+}
+
 function verifyWebhookSecret(req: Request): boolean {
   const sent = req.headers.get('x-telegram-bot-api-secret-token') ?? '';
   const expected = process.env.TELEGRAM_WEBHOOK_SECRET;
@@ -340,6 +345,10 @@ async function handlePostEditCallback(
   }
 
   if (action === 'pe_publish') {
+    if (!isThreadsPublishingEnabled()) {
+      await answerCallbackQuery(cb.id, 'Публикация пока отключена до завершения настройки Zernio');
+      return;
+    }
     await answerCallbackQuery(cb.id, 'Удаляю старый, публикую новый…');
     try {
       // Удаляем старый пост (работает только если опубликован через API и <24ч)
@@ -1137,6 +1146,10 @@ async function handlePhotoCallback(
   }
 
   if (action === 'ph_replace_last') {
+    if (!isThreadsPublishingEnabled()) {
+      await answerCallbackQuery(cb.id, 'Публикация пока отключена до завершения настройки Zernio');
+      return;
+    }
     await answerCallbackQuery(cb.id, 'Удаляю старый, публикую с фото…');
     try {
       const items = await listQueue();
