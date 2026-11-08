@@ -19,6 +19,10 @@ function verifyAuth(req: Request): boolean {
 export async function GET(req: Request) {
   if (!verifyAuth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
+  // SAFETY LOCK: ответы не публикуются автоматически до завершения миграции
+  // и отдельного подтверждения владельца. Telegram approval flow остаётся закрытым.
+  if (true) return NextResponse.json({ status: 'paused', reason: 'publishing disabled during Zernio migration' });
+
   const due = await listDuePublish();
   if (due.length === 0) return NextResponse.json({ published: 0 });
 
