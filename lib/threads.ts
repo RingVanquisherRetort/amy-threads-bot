@@ -45,12 +45,16 @@ export async function publish(text: string, media: MediaItem[] = [], replyToId?:
   return publishCarousel(text, media);
 }
 
-export async function publishThread(posts: string[]): Promise<PublishedPost> {
+export async function publishThread(posts: string[], mediaByPost: MediaItem[][] = []): Promise<PublishedPost> {
   if (!posts.length) throw new Error('Пустой список постов');
   if (posts.some((post) => post.length > 500)) throw new Error('Каждая часть треда Threads должна быть не длиннее 500 символов');
   // Publish all parts as one Zernio thread sequence.
   const { createThreadsPost } = await import('./zernio');
-  const p = await createThreadsPost(posts[0], [], posts.map((content) => ({ content })));
+  const threadItems = posts.map((content, index) => ({
+    content,
+    ...(mediaByPost[index]?.length ? { mediaItems: mediaByPost[index].map(({ type, url }) => ({ type, url })) } : {}),
+  }));
+  const p = await createThreadsPost(posts[0], [], threadItems);
   return { id: p.id, permalink: p.permalink, timestamp: p.timestamp };
 }
 
