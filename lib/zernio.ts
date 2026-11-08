@@ -31,6 +31,21 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return data as T;
 }
 
+
+export async function getThreadsAccountHealth() {
+  const { accountId } = credentials();
+  return request<{
+    accountId: string;
+    platform: string;
+    username?: string;
+    status: string;
+    tokenStatus?: { valid?: boolean; expiresAt?: string; expiresIn?: string };
+    permissions?: { canPost?: boolean; canFetchAnalytics?: boolean; missingRequired?: string[] };
+    issues?: string[];
+    recommendations?: string[];
+  }>(`/accounts/${encodeURIComponent(accountId)}/health`);
+}
+
 export interface ZernioPostResult {
   post: {
     _id: string;
