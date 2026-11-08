@@ -62,12 +62,9 @@ export async function createThreadsPost(content: string, mediaItems: Array<{ typ
     method: 'POST',
     body: JSON.stringify({
       content,
-      platforms: [{
-        platform: 'threads',
-        accountId,
-        ...(mediaItems.length ? { mediaItems } : {}),
-        ...(threadItems ? { platformSpecificData: { threadItems } } : {}),
-      }],
+      ...(mediaItems.length ? { mediaItems } : {}),
+      ...(threadItems ? { platformSpecificData: { threadItems } } : {}),
+      platforms: [{ platform: 'threads', accountId }],
       publishNow: true,
     }),
   });
@@ -83,7 +80,7 @@ export async function createThreadsComment(postId: string, text: string, comment
   if (text.length > 500) throw new Error('Threads: ответ превышает лимит 500 символов');
   const result = await request<{ id?: string; url?: string; comment?: ZernioComment }>(
     `/inbox/comments/${encodeURIComponent(postId)}`,
-    { method: 'POST', body: JSON.stringify({ accountId, text, ...(commentId ? { commentId } : {}) }) },
+    { method: 'POST', body: JSON.stringify({ accountId, message: text, ...(commentId ? { commentId } : {}) }) },
   );
   const comment = result.comment;
   return { id: result.id ?? comment?.id ?? '', permalink: result.url ?? comment?.url ?? '' };
