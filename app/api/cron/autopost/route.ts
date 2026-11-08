@@ -3,7 +3,7 @@
 // Берёт следующий draft из queue/, публикует, обновляет статус, шлёт Telegram.
 import { NextResponse } from 'next/server';
 import { extractMediaForPost, markPosted, nextDraft } from '@/lib/queue';
-import { publish } from '@/lib/threads';
+import { publishThread } from '@/lib/threads';
 import { sendTelegram } from '@/lib/telegram';
 import { acquireLock, releaseLock, get, setWithTtl } from '@/lib/redis';
 
@@ -64,26 +64,14 @@ export async function GET(req: Request) {
       return NextResponse.json({ status: 'skipped_duplicate', file: item.path });
     }
 
-    // Публикуем первый пост (с медиа из frontmatter если есть)
-    const firstMedia = extractMediaForPost(item, 0);
-    const first = await publish(item.posts[0], firstMedia);
+    // Публикуем весь тред одним запросом Zernio, чтобы не оставлять
+    // частично опубликованную цепочку при сбое между отдельными постами.
+    const mediaByPost = item.posts.map((_, index) => extractMediaForPost(item!, index));
+    const first = await publishThread(item.posts, mediaByPost);
 
     // СРАЗУ помечаем файл опубликованным в Redis — до записи статуса в репо.
-    // Это закрывает окно «опубликовали, но markPosted упал»: следующий cron
-    // увидит пометку и не опубликует тот же пост повторно. TTL 7 дней.
     await setWithTtl(postedKey(item.path), { post_id: first.id }, 7 * 24 * 3600).catch(() => {});
-
-    let tailId = first.id;
     const publishedIds: string[] = [first.id];
-
-    // Остальные — как реплаи цепочкой
-    for (let i = 1; i < item.posts.length; i++) {
-      await new Promise((r) => setTimeout(r, 5000));
-      const media = extractMediaForPost(item, i);
-      const reply = await publish(item.posts[i], media, tailId);
-      tailId = reply.id;
-      publishedIds.push(reply.id);
-    }
 
     // Статус в файле и Telegram
     const publishedAt = new Date().toISOString().replace('T', ' ').slice(0, 16);
