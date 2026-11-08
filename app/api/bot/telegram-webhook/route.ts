@@ -116,8 +116,15 @@ export async function GET(req: Request) {
   if (url.searchParams.get('setup') !== '1') {
     return NextResponse.json({
       ok: true,
-      hint: 'Чтобы подключить бота к Telegram, открой этот же адрес с ?setup=1 на конце.',
+      hint: 'Webhook endpoint is online. Setup requires the configured secret.',
     });
+  }
+
+  // Защищаем установку webhook отдельным секретом. Не оставляем публичный
+  // GET-эндпоинт, который любой посетитель мог бы использовать для перенастройки бота.
+  const setupSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+  if (!setupSecret || url.searchParams.get('key') !== setupSecret) {
+    return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
   }
 
   if (!process.env.TELEGRAM_BOT_TOKEN) {
