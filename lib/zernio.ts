@@ -62,9 +62,12 @@ export async function createThreadsPost(content: string, mediaItems: Array<{ typ
     method: 'POST',
     body: JSON.stringify({
       content,
-      ...(mediaItems.length ? { mediaItems } : {}),
-      ...(threadItems ? { platformSpecificData: { threads: { threadItems } } } : {}),
-      platforms: [{ platform: 'threads', accountId }],
+      platforms: [{
+        platform: 'threads',
+        accountId,
+        ...(mediaItems.length ? { mediaItems } : {}),
+        ...(threadItems ? { platformSpecificData: { threadItems } } : {}),
+      }],
       publishNow: true,
     }),
   });
