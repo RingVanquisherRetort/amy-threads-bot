@@ -95,7 +95,7 @@ export async function createThreadsComment(postId: string, text: string, comment
   if (text.length > 500) throw new Error('Threads: ответ превышает лимит 500 символов');
   const result = await request<{ id?: string; url?: string; comment?: ZernioComment }>(
     `/inbox/comments/${encodeURIComponent(postId)}`,
-    { method: 'POST', body: JSON.stringify({ accountId, message: text, ...(commentId ? { commentId } : {}) }) },
+    { method: 'POST', headers: { 'Idempotency-Key': `zumer-${postId}-${commentId ?? 'top'}-${encodeURIComponent(text).slice(0, 80)}` }, body: JSON.stringify({ accountId, message: text, ...(commentId ? { commentId } : {}) }) },
   );
   const comment = result.comment;
   return { id: result.id ?? comment?.id ?? '', permalink: result.url ?? comment?.url ?? '' };
@@ -107,5 +107,5 @@ export async function getThreadsPostComments(postId: string, limit = 50) {
   const result = await request<{ comments?: ZernioComment[] }>(
     `/inbox/comments/${encodeURIComponent(postId)}?${query.toString()}`,
   );
-  return result.comments ?? [];
+  return (result.comments ?? []).filter((comment) => !comment.parentId);
 }
