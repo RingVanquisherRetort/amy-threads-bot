@@ -75,13 +75,15 @@ export async function createThreadsPost(content: string, mediaItems: Array<{ typ
   return { id: target?.platformPostId || result.post._id, zernioId: result.post._id, permalink: target?.platformPostUrl ?? '', timestamp: new Date().toISOString() };
 }
 
-export async function createThreadsComment(postId: string, text: string, commentId?: string) {
+export async function createThreadsComment(postId: string, text: string, commentId?: string): Promise<{ id: string; permalink: string }> {
   const { accountId } = credentials();
   if (text.length > 500) throw new Error('Threads: ответ превышает лимит 500 символов');
-  return request<{ id?: string; comment?: ZernioComment; [key: string]: unknown }>(
+  const result = await request<{ id?: string; url?: string; comment?: ZernioComment }>(
     `/inbox/comments/${encodeURIComponent(postId)}`,
     { method: 'POST', body: JSON.stringify({ accountId, text, ...(commentId ? { commentId } : {}) }) },
   );
+  const comment = result.comment;
+  return { id: result.id ?? comment?.id ?? '', permalink: result.url ?? comment?.url ?? '' };
 }
 
 export async function getThreadsPostComments(postId: string, limit = 50) {
