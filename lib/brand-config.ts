@@ -2,7 +2,7 @@
 export const BRAND = {
   name: process.env.BRAND_NAME ?? 'ЗУМЕР',
   // Хэндл Threads нужно указать после уточнения аккаунта.
-  handle: process.env.THREADS_USERNAME ?? 'your-brand-handle',
+  handle: process.env.THREADS_USERNAME ?? 'zumer_courier',
   site: process.env.BRAND_SITE ?? 'https://t.me/zumer_rabota',
   founder: process.env.BRAND_FOUNDER ?? '',
   oneLiner:
