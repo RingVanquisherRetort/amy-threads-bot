@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { listDuePublish, saveDialog } from '@/lib/dialog';
 import { translateToEnglish } from '@/lib/openrouter';
-import { publishText } from '@/lib/threads';
+import { createThreadsComment } from '@/lib/zernio';
 import { editMessageText } from '@/lib/telegram';
 import { formatDialog } from '@/lib/format';
 
@@ -37,7 +37,7 @@ export async function GET(req: Request) {
         replyUsername: dialog.reply_username,
       });
 
-      const postedReply = await publishText(english, dialog.root_reply_id);
+      const postedReply = await createThreadsComment(dialog.post_id, english, dialog.root_reply_id);
 
       dialog.status = 'done';
       dialog.reply_text_en_final = english;
