@@ -55,7 +55,7 @@ export interface ZernioComment {
   replies?: ZernioComment[];
 }
 
-export async function createThreadsPost(content: string, mediaItems: Array<{ type: 'image' | 'video'; url: string }> = []) {
+export async function createThreadsPost(content: string, mediaItems: Array<{ type: 'image' | 'video'; url: string }> = [], threadItems?: Array<{ content: string; mediaItems?: Array<{ type: 'image' | 'video'; url: string }> }>) {
   const { accountId } = credentials();
   if (content.length > 500) throw new Error('Threads: текст превышает лимит 500 символов');
   const result = await request<ZernioPostResult>('/posts', {
@@ -63,6 +63,7 @@ export async function createThreadsPost(content: string, mediaItems: Array<{ typ
     body: JSON.stringify({
       content,
       ...(mediaItems.length ? { mediaItems } : {}),
+      ...(threadItems ? { platformSpecificData: { threads: { threadItems } } } : {}),
       platforms: [{ platform: 'threads', accountId }],
       publishNow: true,
     }),
