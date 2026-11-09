@@ -19,10 +19,14 @@ export interface ApifyThreadPost {
 }
 
 const DEFAULT_QUERIES = [
-  "работа курьером",
-  "ищу работу",
-  "подработка",
-  "курьеры доставка",
+  "ищу подработку",
+  "подработка Ставрополь",
+  "работа Ставрополь",
+  "курьер Ставрополь",
+  "подработка без опыта",
+  "ищу работу Северный Кавказ",
+  "работа Нальчик",
+  "подработка Пятигорск",
 ];
 
 export async function searchThreadsPosts(topic?: string | null): Promise<ApifyThreadPost[]> {
@@ -46,11 +50,11 @@ export async function searchThreadsPosts(topic?: string | null): Promise<ApifyTh
       },
       body: JSON.stringify({
         searchQueries: queries,
-        searchSort: "recent",
-        maxPostsPerSource: 5,
+        searchSort: "both",
+        maxPostsPerSource: 25,
         includeProfiles: false,
         includeReplies: false,
-        maxItems: 20,
+        maxItems: 100,
         proxyConfiguration: { useApifyProxy: true },
       }),
       cache: "no-store",
