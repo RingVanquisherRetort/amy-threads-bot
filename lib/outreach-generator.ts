@@ -58,14 +58,14 @@ export async function generateOutreachReply(postText: string, author: string): P
   const raw = typeof content === "string"
     ? content
     : Array.isArray(content)
-      ? content.map((part) => part.text ?? "").join("\\n")
+      ? content.map((part) => part.text ?? "").join("\n")
       : "";
 
   // Some model/provider combinations wrap JSON in Markdown or add a short
   // preamble despite response_format=json_object. Extract the first complete
   // JSON object before failing, and report a safe excerpt for diagnostics.
   const candidates = [raw.trim()];
-  const fenced = raw.match(/```(?:json)?\\s*([\\s\\S]*?)\\s*```/i);
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
   if (fenced?.[1]) candidates.push(fenced[1].trim());
   const firstBrace = raw.indexOf("{");
   const lastBrace = raw.lastIndexOf("}");
@@ -86,7 +86,7 @@ export async function generateOutreachReply(postText: string, author: string): P
     }
   }
   if (!parsed) {
-    const excerpt = raw.replace(/[\\r\\n]+/g, " ").slice(0, 260);
+    const excerpt = raw.replace(/[\r\n]+/g, " ").slice(0, 260);
     throw new Error(`OpenRouter вернул некорректный JSON для outreach. Ответ модели: ${excerpt || "[пусто]"}`);
   }
 
