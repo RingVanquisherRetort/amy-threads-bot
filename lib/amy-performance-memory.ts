@@ -169,7 +169,7 @@ export async function saveWeeklyLearningInsights(report: WeeklyLearningReport): 
   const saved: LearningInsight[] = [];
   const now = new Date();
   for (const group of report.groups) {
-    const dimension = group.dimension === 'category' ? 'topic' : group.dimension === 'format' ? 'format' : 'city';
+    const dimension: LearningInsight['dimension'] = group.dimension === 'category' ? 'topic' : group.dimension === 'format' ? 'format' : 'city';
     const id = `${dimension}_${group.value.toLowerCase().replace(/[^a-z0-9_-]+/g,'_').slice(0,50)}_${report.generatedAt.slice(0,10).replace(/-/g,'')}`;
     assertId(id);
     const key = INSIGHT_PREFIX + id;
