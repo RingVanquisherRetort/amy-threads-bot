@@ -19,10 +19,12 @@ function yaml(value: string): string {
 export async function GET(req: Request) {
   if (!authorized(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-  // A preview-only branch guard prevents preview deployments from writing to main.
-  if (process.env.AMY2_AUTOPUBLISH_ENABLED !== '1' ||
-      process.env.GITHUB_BRANCH !== 'amy-2.0-foundation') {
-    return NextResponse.json({ status: 'paused', reason: 'Amy 2.0 preview branch is not explicitly enabled' }, { status: 409 });
+  // Generation is allowed only on the dedicated preview branch. This route never publishes.
+  const branch = process.env.GITHUB_BRANCH ?? process.env.VERCEL_GIT_COMMIT_REF ?? '';
+  if (process.env.VERCEL_ENV === 'production' ||
+      process.env.AMY2_GENERATION_ENABLED !== '1' ||
+      branch !== 'amy-2.0-foundation') {
+    return NextResponse.json({ status: 'paused', reason: 'Amy 2.0 generation is restricted to an explicitly enabled preview deployment' }, { status: 409 });
   }
 
   try {
