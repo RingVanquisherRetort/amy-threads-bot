@@ -17,7 +17,7 @@ const GENERATE_BATCH = 2; // сколько генерим за раз
 function verifyAuth(req: Request): boolean {
   const auth = req.headers.get('authorization') ?? '';
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
+  if (!secret) return false;
   return auth === `Bearer ${secret}`;
 }
 
