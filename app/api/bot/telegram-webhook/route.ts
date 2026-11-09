@@ -41,6 +41,8 @@ import {
 import { listQueue } from '@/lib/queue';
 import { deletePost, publishText } from '@/lib/threads';
 import { generatePost } from '@/lib/post-generator';
+import { generateOutreachReply } from '@/lib/outreach-generator';
+import { searchThreadsPosts } from '@/lib/apify-threads';
 import { putFile, getFile } from '@/lib/github';
 import { downloadTelegramPhotoToRepo } from '@/lib/photo-upload';
 import {
@@ -873,7 +875,7 @@ async function startOutreach(topic: string | null) {
   const job: OutreachJob = {
     id: genOutreachJobId(),
     topic,
-    status: 'pending',
+    status: 'processing',
     items_found: 0,
     items_approved: 0,
     items_published: 0,
@@ -881,12 +883,104 @@ async function startOutreach(topic: string | null) {
     updated_at: new Date().toISOString(),
   };
   await saveOutreachJob(job);
-
   await sendTelegram(
-    `<b>Ищу треды для комментирования...</b>\n\n` +
-    `Тема: ${topic ? escape(topic) : 'дефолтный набор запросов'}\n` +
-    `Результаты пришлю по готовности (1-3 мин).`
+    `<b>Amy ищет публичные ветки Threads</b>\n` +
+    `Запрос: ${topic ? escape(topic) : 'работа, подработка, курьеры и города Северного Кавказа'}\n` +
+    `Сейчас проверю свежесть, релевантность и подготовлю несколько ответов. Ничего не публикуется автоматически.`
   );
+
+  try {
+    const posts = await searchThreadsPosts(topic);
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const ownUsername = (process.env.THREADS_USERNAME ?? '').toLowerCase().replace(/^@/, '');
+    const candidates = posts
+      .filter((post) => {
+        const created = post.createdAt ? Date.parse(post.createdAt) : NaN;
+        const author = (post.author?.username ?? '').toLowerCase().replace(/^@/, '');
+        return !!post.id && !!post.url && !!post.text &&
+          Number.isFinite(created) && created >= cutoff &&
+          author !== ownUsername &&
+          (post.replyCount ?? 0) + (post.likeCount ?? 0) >= 1;
+      })
+      .sort((a, b) => ((b.replyCount ?? 0) * 3 + (b.likeCount ?? 0)) - ((a.replyCount ?? 0) * 3 + (a.likeCount ?? 0)))
+      .slice(0, 8);
+
+    let sentCount = 0;
+    let skippedCount = 0;
+    for (const post of candidates) {
+      if (await isThreadSeen(String(post.id))) continue;
+      const author = post.author?.username ?? 'unknown';
+      const draft = await generateOutreachReply(post.text ?? '', author);
+      if (draft.recommendation !== 'reply' || !draft.comment) {
+        await markThreadSeen(String(post.id));
+        skippedCount++;
+        continue;
+      }
+
+      const item: OutreachItem = {
+        id: `oi_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+        job_id: job.id,
+        thread_id: String(post.id),
+        thread_url: String(post.url),
+        thread_author: author,
+        thread_text: String(post.text).slice(0, 1800),
+        thread_text_ru: String(post.text).slice(0, 1800),
+        search_query: post.searchQuery ?? post.sourceInput ?? topic ?? 'default',
+        tone: 'normal',
+        comment_en: draft.comment,
+        comment_ru: draft.comment,
+        rationale: draft.rationale,
+        status: 'awaiting_approval',
+        corrections_ru: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      await saveOutreachItem(item);
+      await markThreadSeen(String(post.id));
+
+      const original = item.thread_text.length > 650 ? item.thread_text.slice(0, 650) + '…' : item.thread_text;
+      const card =
+        `<b>🧵 Найдена ветка для ЗУМЕРА</b>\n` +
+        `Автор: <b>@${escape(author)}</b>\n` +
+        `Запрос: <i>${escape(item.search_query)}</i>\n` +
+        `Активность: ♥ ${post.likeCount ?? 0} · ответы ${post.replyCount ?? 0}\n` +
+        `<a href="${escape(item.thread_url)}">Открыть ветку в Threads</a>\n\n` +
+        `<b>Публикация:</b>\n<blockquote>${escape(original)}</blockquote>\n\n` +
+        `<b>Черновик ответа ЗУМЕРА:</b>\n<blockquote>${escape(item.comment_ru)}</blockquote>\n\n` +
+        `<i>${escape(item.rationale)}</i>\n\n` +
+        `⚠️ Ответ не отправлен. Нужна твоя проверка.`;
+      const sent = await sendTelegram(card, {
+        disablePreview: true,
+        inlineKeyboard: [
+          [
+            { text: '✅ Одобрить', callback_data: `oc_approve:${item.id}` },
+            { text: '✍️ Поправить', callback_data: `oc_edit:${item.id}` },
+          ],
+          [{ text: '⏭ Пропустить', callback_data: `oc_skip:${item.id}` }],
+        ],
+      });
+      item.telegram_message_id = sent.message_id;
+      await saveOutreachItem(item);
+      sentCount++;
+      if (sentCount >= 4) break;
+    }
+
+    job.status = 'done';
+    job.items_found = sentCount;
+    await saveOutreachJob(job);
+    await sendTelegram(
+      `<b>Поиск завершён</b>\n` +
+      `Проверено публикаций: ${posts.length}\n` +
+      `Подготовлено карточек: ${sentCount}\n` +
+      `Отфильтровано: ${skippedCount}\n` +
+      (sentCount === 0 ? `Подходящих новых веток пока нет. Попробуй другой запрос позже.` : `Все ответы ждут твоего одобрения.`)
+    );
+  } catch (error) {
+    job.status = 'failed';
+    job.error = String(error).slice(0, 500);
+    await saveOutreachJob(job);
+    await sendTelegram(`<b>Не удалось выполнить поиск Threads:</b>\n<pre>${escape(String(error).slice(0, 500))}</pre>`);
+  }
 }
 
 // Обработка кнопок outreach-карточек
@@ -958,7 +1052,7 @@ async function handleOutreachCallback(
 
     // Помечаем тред как обработанный (чтобы не предлагать повторно)
     const shortcodeMatch = item.thread_url.match(/\/post\/([A-Za-z0-9_-]+)/);
-    if (shortcodeMatch) await markThreadSeen(shortcodeMatch[1]);
+    await markThreadSeen(item.thread_id);
 
     await answerCallbackQuery(cb.id, 'Пропустила');
     if (item.telegram_message_id) {
