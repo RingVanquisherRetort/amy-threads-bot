@@ -1,0 +1,28 @@
+name: Publish Zumer first test post (one-time)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Publish only the approved first-test post
+        env:
+          VERCEL_URL: ${{ secrets.VERCEL_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -eu
+          test -n "${VERCEL_URL}" || { echo "VERCEL_URL is missing"; exit 1; }
+          test -n "${CRON_SECRET}" || { echo "CRON_SECRET is missing"; exit 1; }
+          code=$(curl -sS -L --max-redirs 3 --max-time 100 \
+            -o /tmp/body.txt -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            --data '{"confirm":"PUBLISH_ZUMER_FIRST_POST"}' \
+            "${VERCEL_URL%/}/api/admin/publish-first-test")
+          echo "HTTP ${code}"
+          cat /tmp/body.txt
+          test "${code}" = "200"
