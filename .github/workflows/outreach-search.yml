@@ -18,16 +18,14 @@ jobs:
           VERCEL_URL: ${{ secrets.VERCEL_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           
+        
         run: |
           set -eu
-          code=$(curl -sS --max-time 30 \
-            -D /tmp/headers.txt \
-            -o /tmp/body.txt \
-            -w "%{http_code}" \
+          code=$(curl -sS -L --max-redirs 5 --max-time 240 \
+            -o /tmp/body.txt -w "%{http_code}" \
             -H "Authorization: Bearer ${CRON_SECRET}" \
             "${VERCEL_URL}/api/cron/outreach-search")
           echo "HTTP ${code}"
-          echo "Redirect destination:"
-          grep -i '^location:' /tmp/headers.txt || true
-          echo "Response:"
           cat /tmp/body.txt
+          test "${code}" = "200"
+
