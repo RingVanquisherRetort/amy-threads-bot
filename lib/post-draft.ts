@@ -9,6 +9,7 @@
 //   4. ❌ Отмена → удаляем из Redis, в queue/ не попадает
 import { get, set, del, keys } from './redis';
 import type { ContentGoal } from './content-strategy';
+import type { NewsSourceCandidate } from './news-search';
 
 export type PostDraftStatus =
   | 'awaiting_approval'
@@ -23,6 +24,7 @@ export interface PostDraft {
   text_en: string;
   suggested_filename: string;
   rationale: string;
+  sources?: NewsSourceCandidate[];
   // Для иterативной правки
   corrections_ru: string[];
   status: PostDraftStatus;
