@@ -174,7 +174,7 @@ export function formatDraft(d: PostDraft): { text: string; keyboard: InlineKeybo
   const sourceBlock = d.sources?.length
     ? `\n\n<b>Источники для проверки (GDELT):</b>\n` + d.sources.map((s) => `• <a href="${escape(s.url)}">${escape(s.title)}</a> <i>(${escape(s.domain)}; ${escape(s.seenAt || 'дата не указана')})</i>`).join('\n') + `\n<i>Найденные публикации не подтверждают факты. Перед одобрением проверь первоисточник, дату и контекст.</i>`
     : '';
-  const header = `🤖 <b>Amy сгенерировала пост</b> ${goalBadge}\n<i>${escape(d.rationale)}</i>`;
+  const rationale = (d.rationale ?? '').replace(/[—–]/g, '-').slice(0, 180);\n  const header = `🤖 <b>Amy подготовила черновик</b> ${goalBadge}${rationale ? `\\n<i>${escape(rationale)}</i>` : ''}`;
 
   if (d.status === 'awaiting_correction') {
     return {
