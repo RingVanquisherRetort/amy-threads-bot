@@ -28,9 +28,11 @@ export async function searchThreadsPosts(topic?: string | null): Promise<ApifyTh
   const token = process.env.APIFY_API_TOKEN;
   if (!token) throw new Error("APIFY_API_TOKEN не задан в Vercel");
 
+  // Keep each synchronous actor run deliberately small: the webhook runs
+  // inside a serverless request and must not wait on a large multi-query scrape.
   const queries = topic?.trim()
     ? [topic.trim().slice(0, 100)]
-    : DEFAULT_QUERIES;
+    : DEFAULT_QUERIES.slice(0, 3);
 
   const response = await fetch(
     "https://api.apify.com/v2/acts/innolabs~threads-scraper/run-sync-get-dataset-items",
@@ -44,14 +46,14 @@ export async function searchThreadsPosts(topic?: string | null): Promise<ApifyTh
       body: JSON.stringify({
         searchQueries: queries,
         searchSort: "recent",
-        maxPostsPerSource: 5,
+        maxPostsPerSource: 3,
         includeProfiles: false,
         includeReplies: false,
-        maxItems: 35,
+        maxItems: 9,
         proxyConfiguration: { useApifyProxy: true },
       }),
       cache: "no-store",
-      signal: AbortSignal.timeout(45_000),
+      signal: AbortSignal.timeout(40_000),
     }
   );
 
