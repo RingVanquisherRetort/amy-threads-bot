@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 const QUEUE_MIN = 5; // если драфтов меньше — генерим
-const GENERATE_BATCH = 3; // сколько генерим за раз
+const GENERATE_BATCH = 2; // сколько генерим за раз
 
 function verifyAuth(req: Request): boolean {
   const auth = req.headers.get('authorization') ?? '';
