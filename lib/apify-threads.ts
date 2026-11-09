@@ -14,14 +14,7 @@ export interface ApifyThreadPost {
 }
 
 const DEFAULT_QUERIES = [
-  "ищу работу Ставрополь",
-  "подработка Ставрополь",
   "работа курьером",
-  "курьеры доставка",
-  "ищу подработку",
-  "работа Пятигорск",
-  "работа Нальчик",
-  "подработка Северный Кавказ",
 ];
 
 export async function searchThreadsPosts(topic?: string | null): Promise<ApifyThreadPost[]> {
@@ -32,7 +25,7 @@ export async function searchThreadsPosts(topic?: string | null): Promise<ApifyTh
   // inside a serverless request and must not wait on a large multi-query scrape.
   const queries = topic?.trim()
     ? [topic.trim().slice(0, 100)]
-    : DEFAULT_QUERIES.slice(0, 3);
+    : DEFAULT_QUERIES;
 
   const response = await fetch(
     "https://api.apify.com/v2/acts/innolabs~threads-scraper/run-sync-get-dataset-items",
@@ -46,14 +39,14 @@ export async function searchThreadsPosts(topic?: string | null): Promise<ApifyTh
       body: JSON.stringify({
         searchQueries: queries,
         searchSort: "recent",
-        maxPostsPerSource: 3,
+        maxPostsPerSource: 5,
         includeProfiles: false,
         includeReplies: false,
-        maxItems: 9,
+        maxItems: 5,
         proxyConfiguration: { useApifyProxy: true },
       }),
       cache: "no-store",
-      signal: AbortSignal.timeout(40_000),
+      signal: AbortSignal.timeout(55_000),
     }
   );
 
