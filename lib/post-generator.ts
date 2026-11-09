@@ -21,6 +21,7 @@ import {
 } from './castdev';
 import { getBrandVoicePrompt } from './brand';
 import { handleAt } from './brand-config';
+import { searchLocalNewsCandidates, formatNewsCandidatesForPrompt, NewsSourceCandidate } from './news-search';
 
 async function chat(
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
@@ -59,6 +60,7 @@ export interface GeneratedPost {
   text_en: string;
   suggested_filename: string;
   rationale: string;
+  sources: NewsSourceCandidate[];
 }
 
 async function recentPostedItems(n = 14): Promise<QueueItem[]> {
@@ -107,6 +109,9 @@ export async function generatePost(forceGoal?: ContentGoal): Promise<GeneratedPo
   }
 
   const recentBlock = buildRecentContext(recent);
+  let newsSources: NewsSourceCandidate[] = [];
+  try { newsSources = await searchLocalNewsCandidates(); } catch (error) { console.warn('News discovery unavailable:', error); }
+  const newsBlock = formatNewsCandidatesForPrompt(newsSources);
 
   const userPrompt = `
 Создай ОДИН оригинальный пост НА РУССКОМ ЯЗЫКЕ для Threads-аккаунта ${handleAt()} проекта ЗУМЕР.
@@ -146,13 +151,18 @@ ${spec.target_length_chars[0]}–${spec.target_length_chars[1]} символов
 ## Фирменная подача ЗУМЕРА
 Пиши коротко и живо, с самоиронией, наблюдениями и естественным юмором. Добавь 1–3 уместных эмодзи (например 😂 💀 🤝 🫠 🏃 📦 💛), но не ставь их механически и не перегружай. Один пост — одна мысль. Не делай текст рекламным, не выдумывай условия работы, выплаты, график или личный опыт. Используй локальный контекст Ставрополя/Северного Кавказа только если он уместен и достоверен.${castdevBlock}
 
+## Найденные новостные кандидаты (GDELT, последние 7 дней)
+Это только список для поиска инфоповода, не подтверждение фактов. Используй кандидата только если он действительно релевантен аудитории ЗУМЕРА. Не пересказывай заголовок как установленный факт. Если используешь источник, добавь его SOURCE_ID в source_ids. Если ни один не подходит, оставь source_ids пустым и не создавай новость.
+${newsBlock}
+
 ## Последние ${recent.length} постов аккаунта (чтобы не повторяться по теме/хуку/деталям)
 ${recentBlock}
 
 ## Формат ответа — СТРОГО JSON
 {
   "text_en": "готовый текст публикации НА РУССКОМ ЯЗЫКЕ, с естественными эмодзи по необходимости, без кавычек",
-  "rationale": "1-2 предложения на русском — почему такой пост, что именно ловим"
+  "rationale": "1-2 предложения на русском — почему такой пост, что именно ловим",
+  "source_ids": ["SOURCE_ID из списка или пустой массив"]
 }
 
 Перед ответом проверь: text_en написан по-русски, относится к выбранной рубрике и аудитории ЗУМЕРА, не содержит выдуманных локальных фактов, неподтверждённых новостей, выдуманных условий Яндекс Еды и обещаний гарантированного дохода. В rationale кратко укажи рубрику и географию (или «без геопривязки»), чтобы редактор мог понять замысел. Никаких пояснений вне JSON.
@@ -169,7 +179,7 @@ ${recentBlock}
   let cleaned = raw.trim();
   const fenced = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (fenced) cleaned = fenced[1];
-  let parsed: { text_en: string; rationale: string };
+  let parsed: { text_en: string; rationale: string; source_ids?: string[] };
   try {
     parsed = JSON.parse(cleaned);
   } catch {
@@ -196,5 +206,6 @@ ${recentBlock}
     text_en: text,
     suggested_filename: filename,
     rationale: parsed.rationale ?? '',
+    sources: newsSources.filter((source) => (parsed.source_ids ?? []).includes(source.id)),
   };
 }
