@@ -51,13 +51,43 @@ export async function generateOutreachReply(postText: string, author: string): P
     throw new Error(`OpenRouter outreach ${response.status}: ${(await response.text()).slice(0, 400)}`);
   }
 
-  const payload = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const raw = payload.choices?.[0]?.message?.content ?? "";
-  let parsed: OutreachDraft;
-  try {
-    parsed = JSON.parse(raw) as OutreachDraft;
-  } catch {
-    throw new Error("OpenRouter вернул некорректный JSON для outreach");
+  const payload = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string | Array<{ type?: string; text?: string }> } }>;
+  };
+  const content = payload.choices?.[0]?.message?.content;
+  const raw = typeof content === "string"
+    ? content
+    : Array.isArray(content)
+      ? content.map((part) => part.text ?? "").join("\\n")
+      : "";
+
+  // Some model/provider combinations wrap JSON in Markdown or add a short
+  // preamble despite response_format=json_object. Extract the first complete
+  // JSON object before failing, and report a safe excerpt for diagnostics.
+  const candidates = [raw.trim()];
+  const fenced = raw.match(/```(?:json)?\\s*([\\s\\S]*?)\\s*```/i);
+  if (fenced?.[1]) candidates.push(fenced[1].trim());
+  const firstBrace = raw.indexOf("{");
+  const lastBrace = raw.lastIndexOf("}");
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    candidates.push(raw.slice(firstBrace, lastBrace + 1).trim());
+  }
+
+  let parsed: Partial<OutreachDraft> | null = null;
+  for (const candidate of candidates) {
+    try {
+      const value = JSON.parse(candidate) as Partial<OutreachDraft>;
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        parsed = value;
+        break;
+      }
+    } catch {
+      // Try the next representation.
+    }
+  }
+  if (!parsed) {
+    const excerpt = raw.replace(/[\\r\\n]+/g, " ").slice(0, 260);
+    throw new Error(`OpenRouter вернул некорректный JSON для outreach. Ответ модели: ${excerpt || "[пусто]"}`);
   }
 
   const comment = String(parsed.comment ?? "").trim().replace(/[—–]/g, "-").slice(0, 280);
