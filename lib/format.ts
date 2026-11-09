@@ -171,12 +171,15 @@ export function formatPreview(items: QueueItem[]): string {
 // =====================================================================
 export function formatDraft(d: PostDraft): { text: string; keyboard: InlineKeyboard } {
   const goalBadge = `<b>[${d.goal}]</b>` + (d.castdev_module ? ` <i>${escape(d.castdev_module)}</i>` : '');
+  const sourceBlock = d.sources?.length
+    ? `\n\n<b>Источники для проверки (GDELT):</b>\n` + d.sources.map((s) => `• <a href="${escape(s.url)}">${escape(s.title)}</a> <i>(${escape(s.domain)}; ${escape(s.seenAt || 'дата не указана')})</i>`).join('\n') + `\n<i>Найденные публикации не подтверждают факты. Перед одобрением проверь первоисточник, дату и контекст.</i>`
+    : '';
   const header = `🤖 <b>Amy сгенерировала пост</b> ${goalBadge}\n<i>${escape(d.rationale)}</i>`;
 
   if (d.status === 'awaiting_correction') {
     return {
       text:
-        header +
+        header + sourceBlock +
         `\n\n<b>Текущий вариант (EN):</b>\n<blockquote>${escape(d.text_en)}</blockquote>` +
         (d.corrections_ru.length > 0
           ? `\n\n<b>Уже применили правки:</b>\n${d.corrections_ru.map((c, i) => `${i + 1}. ${escape(c)}`).join('\n')}`
@@ -189,7 +192,7 @@ export function formatDraft(d: PostDraft): { text: string; keyboard: InlineKeybo
   if (d.status === 'awaiting_approval') {
     return {
       text:
-        header +
+        header + sourceBlock +
         `\n\n<b>Текст публикации (RU):</b>\n<blockquote>${escape(d.text_en)}</blockquote>` +
         (d.corrections_ru.length > 0
           ? `\n\n<b>Применены правки:</b>\n${d.corrections_ru.map((c, i) => `${i + 1}. ${escape(c)}`).join('\n')}`
