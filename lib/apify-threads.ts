@@ -11,7 +11,6 @@ export interface ApifyThreadPost {
   repostCount?: number;
   searchQuery?: string | null;
   sourceInput?: string;
-  searchQuery?: string | null;
 }
 
 const DEFAULT_QUERIES = [
