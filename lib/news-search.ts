@@ -41,7 +41,7 @@ function parseSeenDate(value?: string): string {
 }
 
 export async function searchLocalNewsCandidates(): Promise<NewsSourceCandidate[]> {
-  const query = '(Stavropol OR "Stavropol Krai" OR "North Caucasus") sourcelang:russian';
+  const query = '(Stavropol OR "Stavropol Krai" OR "North Caucasus" OR Pyatigorsk OR Kislovodsk OR Essentuki OR "Mineralnye Vody" OR Nalchik OR Cherkessk OR Makhachkala OR Vladikavkaz OR Grozny) sourcelang:russian';
   const params = new URLSearchParams({
     query,
     mode: 'artlist',
