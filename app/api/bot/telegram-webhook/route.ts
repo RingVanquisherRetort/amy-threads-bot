@@ -895,7 +895,7 @@ async function startOutreach(topic: string | null) {
     // Search results are already sorted by Threads' Recent tab. Keep a generous
     // 30-day safety window and do not discard quiet/new posts just because they
     // have zero likes or replies.
-    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - 3 * 24 * 60 * 60 * 1000;
     const ownUsername = (process.env.THREADS_USERNAME ?? '').toLowerCase().replace(/^@/, '');
     const diagnostics = { missingDate: 0, oldDate: 0, ownPost: 0, invalid: 0, duplicate: 0 };
     const candidates = posts.filter((post) => {
@@ -982,7 +982,7 @@ async function startOutreach(topic: string | null) {
       `Проверено публикаций: ${posts.length}\n` +
       `Подготовлено карточек: ${sentCount}\n` +
       `Отклонено редактором AI: ${skippedCount}\n` +
-      `Дубли: ${diagnostics.duplicate}; старше 30 дней: ${diagnostics.oldDate}; без даты: ${diagnostics.missingDate}; свои: ${diagnostics.ownPost}; некорректные: ${diagnostics.invalid}\n` +
+      `Дубли: ${diagnostics.duplicate}; старше 3 дней: ${diagnostics.oldDate}; без даты: ${diagnostics.missingDate}; свои: ${diagnostics.ownPost}; некорректные: ${diagnostics.invalid}\n` +
       (rejectionNotes.length ? `\n<b>Почему AI отклонил:</b>\n${rejectionNotes.slice(0, 5).map((note, index) => `${index + 1}. ${escape(note)}`).join('\n')}\n` : '') +
       (sentCount === 0 ? `Подходящих новых веток пока нет. Попробуй другой запрос позже.` : `Все ответы ждут твоего одобрения.`)
     );
