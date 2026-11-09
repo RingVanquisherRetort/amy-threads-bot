@@ -20,7 +20,7 @@ export async function GET(req: Request) {
   if (!authorized(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   // Generation is allowed only on the dedicated preview branch. This route never publishes.
-  const branch = process.env.GITHUB_BRANCH ?? process.env.VERCEL_GIT_COMMIT_REF ?? '';
+  const branch = process.env.VERCEL_GIT_COMMIT_REF ?? ''; // Deployment branch, not the queue storage branch.
   if (process.env.VERCEL_ENV === 'production' ||
       process.env.AMY2_GENERATION_ENABLED !== '1' ||
       branch !== 'amy-2.0-foundation') {
