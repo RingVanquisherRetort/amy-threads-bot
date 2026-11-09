@@ -19,8 +19,8 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -eu
-          code=$(curl -sS --max-time 240 -o /tmp/body.txt -w "%{http_code}" \\
-            -H "Authorization: Bearer ${CRON_SECRET}" \\
+          code=$(curl -sS --max-time 240 -o /tmp/body.txt -w "%{http_code}" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
             "${VERCEL_URL}/api/cron/outreach-search")
           echo "HTTP ${code}"
           cat /tmp/body.txt
