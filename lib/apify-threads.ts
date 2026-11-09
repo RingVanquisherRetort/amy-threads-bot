@@ -20,6 +20,9 @@ export interface ApifyThreadPost {
 
 const DEFAULT_QUERIES = [
   "работа курьером",
+  "ищу работу",
+  "подработка",
+  "курьеры доставка",
 ];
 
 export async function searchThreadsPosts(topic?: string | null): Promise<ApifyThreadPost[]> {
@@ -47,7 +50,7 @@ export async function searchThreadsPosts(topic?: string | null): Promise<ApifyTh
         maxPostsPerSource: 5,
         includeProfiles: false,
         includeReplies: false,
-        maxItems: 5,
+        maxItems: 20,
         proxyConfiguration: { useApifyProxy: true },
       }),
       cache: "no-store",
