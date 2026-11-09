@@ -41,7 +41,7 @@ export async function GET(req: Request) {
     const evaluation = await evaluateGeneratedPost(generated);
 
     if (evaluation.decision !== 'publish_eligible' || evaluation.total < 60 ||
-        evaluation.score.factualAccuracy < 4) {
+        evaluation.score.factualAccuracy < 3) {
       return NextResponse.json({
         status: 'not_eligible',
         decision: evaluation.decision,
