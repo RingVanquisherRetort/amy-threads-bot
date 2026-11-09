@@ -12,7 +12,7 @@ This branch adds an isolated foundation. It does not modify production routes, l
 - All Russia with North Caucasus priority: Stavropol first, then Pyatigorsk and Kislovodsk; Makhachkala after checking courier connection availability; other priority cities gradually.
 - Trend lookback: three days. Topic repetition window: seven days.
 - Intelligent memory retention: 90 days.
-- Income-related language is not blanket-blocked. Concrete sums, conditions, and guarantees must not be fabricated.
+- Income-related language is not blanket-blocked. Hypothetical numeric examples are allowed only when clearly labeled as illustrative, not statistics, average earnings, forecasts, guarantees, real tariffs, or official Yandex terms.
 
 ## Memory domains
 1. Content records.
