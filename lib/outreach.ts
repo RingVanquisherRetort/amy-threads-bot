@@ -59,7 +59,7 @@ export interface OutreachItem {
 const JOB_KEY = (id: string) => `outreach:job:${id}`;
 const ITEM_KEY = (id: string) => `outreach:item:${id}`;
 const AWAITING_KEY = 'outreach:awaiting_correction';
-const SEEN_SET = 'outreach:seen_threads';
+const SEEN_SET = 'outreach:seen_threads:v2';
 
 // =====================================================================
 // Генерация ID
