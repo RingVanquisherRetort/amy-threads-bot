@@ -21,6 +21,75 @@ import {
 import { handleAt } from './brand-config';
 import { searchLocalNewsCandidates, formatNewsCandidatesForPrompt, NewsSourceCandidate } from './news-search';
 
+import { editorialDecision, type EditorialScore } from './editorial-score';
+
+export interface EditorialEvaluation {
+  score: EditorialScore;
+  total: number;
+  decision: 'publish_eligible' | 'revise' | 'reject';
+  rationale: string;
+  usedSourceIds: string[];
+}
+
+const EDITORIAL_KEYS: Array<keyof EditorialScore> = [
+  'naturalness', 'engagement', 'brandVoice', 'originality',
+  'usefulnessEmotion', 'seo', 'factualAccuracy',
+];
+
+/** Independent second-pass editorial review. Invalid or incomplete model output fails closed. */
+export async function evaluateGeneratedPost(post: GeneratedPost): Promise<EditorialEvaluation> {
+  const sourceList = post.sources.map((s) => ({ id: s.id, title: s.title, url: s.url, domain: s.domain }));
+  const raw = await chat([
+    {
+      role: 'system',
+      content: 'Ты независимый выпускающий редактор ЗУМЕРА. Проверяй факты строго. Кандидат новости не считается подтверждением факта: использованный источник должен прямо поддерживать утверждение. Не подтверждённые суммы, выплаты, условия Яндекс Еды, гарантии, личные истории и конкретные локальные факты являются критическими ошибками. Верни только JSON.',
+    },
+    {
+      role: 'user',
+      content: `Оцени этот пост по шкалам. Верни JSON с полями score (naturalness 0-20, engagement 0-20, brandVoice 0-20, originality 0-15, usefulnessEmotion 0-10, seo 0-10, factualAccuracy 0-5), rationale (до 200 символов), usedSourceIds (массив ID).
+Пост: ${post.text_en}
+Цель: ${post.goal}
+Источники-кандидаты: ${JSON.stringify(sourceList)}
+Правила: если пост содержит проверяемые новости/цены/расписания/правила/конкретные городские факты, но ни один переданный источник прямо их не подтверждает, factualAccuracy не выше 1. Если источник лишь кандидат/заголовок и не подтверждает утверждение, не считай его доказательством. Если есть выдуманная история от первого лица, обещание дохода, гарантии или неподтверждённые условия работы, factualAccuracy=0. Для явно условной художественной сценки или мнения без фактических заявлений можно оценить factualAccuracy до 5. usedSourceIds должны быть только из списка выше.`,
+    },
+  ], 350);
+
+  let parsed: any;
+  try {
+    const clean = raw.trim().replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\s*\`\`\`$/, '');
+    parsed = JSON.parse(clean);
+  } catch {
+    throw new Error('Редакторская проверка вернула некорректный JSON; публикация запрещена');
+  }
+  if (!parsed?.score || !Array.isArray(parsed.usedSourceIds) || typeof parsed.rationale !== 'string') {
+    throw new Error('Редакторская проверка вернула неполную структуру; публикация запрещена');
+  }
+  const score = {} as EditorialScore;
+  for (const key of EDITORIAL_KEYS) {
+    const value = parsed.score[key];
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      throw new Error(`Редакторская оценка не содержит корректное поле ${key}`);
+    }
+    score[key] = value;
+  }
+  const allowedSources = new Set(post.sources.map((s) => s.id));
+  const usedSourceIds = parsed.usedSourceIds.filter((id: unknown): id is string =>
+    typeof id === 'string' && allowedSources.has(id)
+  );
+  if (usedSourceIds.length !== parsed.usedSourceIds.length) {
+    throw new Error('Редакторская проверка сослалась на неизвестный источник; публикация запрещена');
+  }
+  const result = editorialDecision(score);
+  return {
+    score,
+    total: result.total,
+    decision: result.decision,
+    rationale: parsed.rationale.slice(0, 200),
+    usedSourceIds,
+  };
+}
+
+
 async function chat(
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
   maxTokens = 800
