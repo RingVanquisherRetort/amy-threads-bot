@@ -1,4 +1,4 @@
-// Генератор постов через Claude (OpenRouter).
+// Генератор русскоязычных постов для ЗУМЕРА через OpenRouter.
 //
 // Amy сама пишет драфты постов когда:
 //   - очередь почти пустая (cron /api/cron/queue-refill)
@@ -22,7 +22,6 @@ import {
 import { getBrandVoicePrompt } from './brand';
 import { handleAt } from './brand-config';
 
-// Тонкий wrapper над тем же OpenRouter что в lib/openrouter.ts, но без CommentContext.
 async function chat(
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
   maxTokens = 800
@@ -41,7 +40,7 @@ async function chat(
       model: 'anthropic/claude-sonnet-4.6',
       messages,
       max_tokens: maxTokens,
-      temperature: 0.85, // выше чем для ответов на комменты — нужно разнообразие
+      temperature: 0.85,
     }),
   });
   if (!res.ok) {
@@ -54,13 +53,14 @@ async function chat(
 
 export interface GeneratedPost {
   goal: ContentGoal;
-  castdev_module?: string; // только для discovery
-  text_en: string; // готовый английский текст
-  suggested_filename: string; // например "2026-05-28-discovery-anxiety.md"
-  rationale: string; // 1-2 строки на русском — почему такой пост
+  castdev_module?: string;
+  // Поле исторически называется text_en, но теперь содержит русский текст.
+  // Имя оставлено для совместимости с существующей очередью и Telegram flow.
+  text_en: string;
+  suggested_filename: string;
+  rationale: string;
 }
 
-// Последние N постов из очереди (для понимания недавней ротации и анти-повторов)
 async function recentPostedItems(n = 14): Promise<QueueItem[]> {
   const items = await listQueue();
   const posted = items.filter(
@@ -85,24 +85,18 @@ function buildRecentContext(recent: QueueItem[]): string {
     .join('\n\n');
 }
 
-// Узнаём какие цели были у последних N постов — для ротации
 function extractRecentGoals(recent: QueueItem[]): ContentGoal[] {
   return recent
     .map((it) => String(it.frontmatter.goal ?? 'brand').toLowerCase() as ContentGoal)
     .filter((g): g is ContentGoal => g === 'subscribe' || g === 'discovery' || g === 'brand');
 }
 
-// =====================================================================
-// Главная функция — сгенерить пост.
-// Если goal=undefined — Amy сама выбирает по ротации.
-// =====================================================================
 export async function generatePost(forceGoal?: ContentGoal): Promise<GeneratedPost> {
   const recent = await recentPostedItems(14);
   const recentGoals = extractRecentGoals(recent);
   const goal = forceGoal ?? pickNextGoal(recentGoals);
   const spec = GOAL_SPECS[goal];
 
-  // Для discovery — выбираем castdev-модуль и загружаем контекст из шаблона
   let castdevBlock = '';
   let castdevModuleId: string | undefined;
   if (goal === 'discovery') {
@@ -115,7 +109,9 @@ export async function generatePost(forceGoal?: ContentGoal): Promise<GeneratedPo
   const recentBlock = buildRecentContext(recent);
 
   const userPrompt = `
-Сгенери ОДИН пост для Threads-аккаунта ${handleAt()}.
+Создай ОДИН оригинальный пост НА РУССКОМ ЯЗЫКЕ для Threads-аккаунта ${handleAt()} проекта ЗУМЕР.
+
+ОБЯЗАТЕЛЬНО: итоговый текст публикации должен быть естественным русским текстом для аудитории Ставрополя, Ставропольского края и Северного Кавказа. Не пиши на английском. Не делай англоязычный пост и не переводи шаблонные англоязычные мысли. Пиши именно от редакции ЗУМЕРА, а не абстрактного международного аккаунта о курьерах.
 
 # Тип поста: ${goal}
 ${spec.description}
@@ -137,11 +133,11 @@ ${recentBlock}
 
 ## Формат ответа — СТРОГО JSON
 {
-  "text_en": "готовый английский текст поста, без кавычек",
+  "text_en": "готовый текст публикации НА РУССКОМ ЯЗЫКЕ, без кавычек",
   "rationale": "1-2 предложения на русском — почему такой пост, что именно ловим"
 }
 
-Никаких пояснений вне JSON.
+Перед ответом проверь: text_en написан по-русски, относится к темам и аудитории ЗУМЕРА, не содержит выдуманных условий Яндекс Еды и обещаний гарантированного дохода. Никаких пояснений вне JSON.
 `.trim();
 
   const raw = await chat(
@@ -152,21 +148,19 @@ ${recentBlock}
     900
   );
 
-  // Парсим JSON (модель иногда оборачивает в ```json)
   let cleaned = raw.trim();
   const fenced = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (fenced) cleaned = fenced[1];
   let parsed: { text_en: string; rationale: string };
   try {
     parsed = JSON.parse(cleaned);
-  } catch (e) {
+  } catch {
     throw new Error(`LLM вернул не-JSON: ${raw.slice(0, 300)}`);
   }
 
-  const text = (parsed.text_en ?? '').trim().replace(/^["«'"]|["»'"]$/g, '');
+  const text = (parsed.text_en ?? '').trim().replace(/^[\"«']|[\"»']$/g, '');
   if (!text) throw new Error(`LLM вернул пустой text_en: ${raw.slice(0, 300)}`);
 
-  // Имя файла: дата + цель + slug из первых слов
   const today = new Date().toISOString().slice(0, 10);
   const slug = text
     .toLowerCase()
