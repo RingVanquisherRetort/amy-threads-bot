@@ -109,7 +109,8 @@ export async function generatePost(forceGoal?: ContentGoal): Promise<GeneratedPo
   const recentBlock = buildRecentContext(recent).slice(0, 1800);
   let newsSources: NewsSourceCandidate[] = [];
   try { newsSources = await searchLocalNewsCandidates(); } catch (error) { console.warn('News discovery unavailable:', error); }
-  newsSources = newsSources.slice(0, 4);\n  const newsBlock = formatNewsCandidatesForPrompt(newsSources).slice(0, 2200);
+  newsSources = newsSources.slice(0, 4);
+  const newsBlock = formatNewsCandidatesForPrompt(newsSources).slice(0, 2200);
 
   const userPrompt = `
 Напиши один оригинальный пост на русском для Threads-аккаунта ${handleAt()} проекта ЗУМЕР.
