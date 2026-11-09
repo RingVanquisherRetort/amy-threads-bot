@@ -166,7 +166,7 @@ ${castdevBlock}
     throw new Error(`LLM вернул не-JSON: ${raw.slice(0, 300)}`);
   }
 
-  const text = (parsed.text_en ?? '').trim().replace(/^[\"«']|[\"»']$/g, '');
+  const text = (parsed.text_en ?? '').trim().replace(/^[\"«']|[\"»']$/g, '').replace(/[—–]/g, '-');
   if (!text) throw new Error(`LLM вернул пустой text_en: ${raw.slice(0, 300)}`);
 
   const today = new Date().toISOString().slice(0, 10);
