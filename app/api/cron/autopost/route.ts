@@ -29,6 +29,11 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
+  const branch = process.env.GITHUB_BRANCH ?? process.env.VERCEL_GIT_COMMIT_REF ?? '';
+  if (process.env.VERCEL_ENV !== 'production' || branch !== 'main') {
+    return NextResponse.json({ status: 'paused', reason: 'Publishing is restricted to the production main deployment' }, { status: 409 });
+  }
+
   // SAFETY LOCK: автопубликация отключена в коде до завершения миграции на Zernio
   // и отдельного подтверждения владельца. Одной env-переменной недостаточно.
   if (process.env.ZERNIO_MIGRATION_COMPLETE !== '1' || process.env.THREADS_AUTOPOST_PAUSED === '1') {
