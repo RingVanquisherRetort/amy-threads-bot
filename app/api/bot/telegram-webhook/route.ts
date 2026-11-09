@@ -59,6 +59,7 @@ import {
   getAwaitingOutreachId,
   setAwaitingOutreachId,
   markThreadSeen,
+  isThreadSeen,
   genOutreachJobId,
   saveOutreachJob,
   type OutreachJob,
@@ -903,7 +904,7 @@ async function startOutreach(topic: string | null) {
           (post.replyCount ?? 0) + (post.likeCount ?? 0) >= 1;
       })
       .sort((a, b) => ((b.replyCount ?? 0) * 3 + (b.likeCount ?? 0)) - ((a.replyCount ?? 0) * 3 + (a.likeCount ?? 0)))
-      .slice(0, 8);
+      .slice(0, 5);
 
     let sentCount = 0;
     let skippedCount = 0;
@@ -1004,16 +1005,16 @@ async function handleOutreachCallback(
     }
     item.status = 'approved';
     await saveOutreachItem(item);
-    await answerCallbackQuery(cb.id, 'Принято — публикую через браузер...');
+    await answerCallbackQuery(cb.id, 'Одобрено. Отправка пока вручную по ссылке.');
 
     if (item.telegram_message_id) {
       await editMessageText(
         item.telegram_message_id,
-        `<b>Outreach: одобрено, публикую…</b>\n` +
+        `<b>Outreach: черновик одобрен</b>\n` +
         `Автор: <b>@${escape(item.thread_author)}</b>\n` +
         `<a href="${escape(item.thread_url)}">тред</a>\n\n` +
         `<blockquote>${escape(item.comment_en)}</blockquote>\n` +
-        `<i>Воркер опубликует в браузере, пришлёт подтверждение.</i>`,
+        `<i>Черновик одобрен. Автоматическая отправка комментариев пока не подключена, поэтому опубликуй его вручную по ссылке выше.</i>`,
         { inlineKeyboard: [] }
       );
     }
