@@ -20,7 +20,7 @@ function verifyAuth(req: Request): boolean {
   // Env CRON_SECRET устанавливается автоматически при включении cron.
   const auth = req.headers.get('authorization') ?? '';
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // dev / ручной запуск
+  if (!secret) return false; // fail closed: publishing requires an explicit cron secret
   return auth === `Bearer ${secret}`;
 }
 
