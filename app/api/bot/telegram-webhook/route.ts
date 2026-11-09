@@ -639,6 +639,7 @@ async function startGenerate(goalArg?: string) {
       text_en: gen.text_en,
       suggested_filename: gen.suggested_filename,
       rationale: gen.rationale,
+        sources: gen.sources,
       corrections_ru: [],
       status: 'awaiting_approval',
       created_at: new Date().toISOString(),
