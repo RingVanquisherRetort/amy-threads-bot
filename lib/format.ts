@@ -190,7 +190,7 @@ export function formatDraft(d: PostDraft): { text: string; keyboard: InlineKeybo
     return {
       text:
         header +
-        `\n\n<b>Текст (EN):</b>\n<blockquote>${escape(d.text_en)}</blockquote>` +
+        `\n\n<b>Текст публикации (RU):</b>\n<blockquote>${escape(d.text_en)}</blockquote>` +
         (d.corrections_ru.length > 0
           ? `\n\n<b>Применены правки:</b>\n${d.corrections_ru.map((c, i) => `${i + 1}. ${escape(c)}`).join('\n')}`
           : '') +
