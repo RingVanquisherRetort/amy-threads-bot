@@ -50,3 +50,20 @@ Automatic publishing remains disabled by the existing production safety guard. T
 - GitHub branch comparison confirms changes are isolated from `main`.
 - Typecheck, lint, and build have not yet been executed in this environment.
 - No live Redis write/read test has been performed.
+
+
+## Performance Memory and Learning Engine
+
+- `lib/amy-performance-memory.ts` stores immutable-style metric snapshots in the isolated `amy2:performance:` namespace with 90-day TTL.
+- Snapshot inputs support views, likes, replies, reposts, quotes, profile visits, link clicks, capture time, and snapshot age. Missing metrics stay undefined.
+- `buildWeeklyLearningReport()` compares category, format, and city using the latest available snapshot per content record.
+- Engagement rate is calculated as (likes + replies + reposts + quotes) / views. Posts without a view count are excluded rather than treated as zero.
+- Groups below the minimum sample size are omitted. The default minimum is 3 posts.
+- Recommendations are explicitly framed as hypotheses to test, not causal conclusions.
+- `saveWeeklyLearningInsights()` persists grouped findings for later use; `listLearningInsights()` retrieves them.
+- This module does not schedule 24h/72h data collection or call Threads/Zernio APIs. An existing trusted metrics ingestion path must call `savePerformanceSnapshot()`; scheduling and platform integration are a separate stage.
+
+## Verification status
+
+- Source reviewed after writing; no live Redis or platform calls were made.
+- Typecheck, lint, and build remain unverified in this environment.
