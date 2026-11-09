@@ -60,6 +60,7 @@ export async function saveContentMemory(input: ContentInput): Promise<ContentMem
     schemaVersion: 2 as const,
   });
   await saveExpiringMemory(key as `amy2:${string}`, record);
+  await addToExpiryIndex(CONTENT_INDEX, key, record.expiresAt);
   return record;
 }
 
@@ -94,6 +95,7 @@ export async function saveTrendMemory(input: TrendInput): Promise<TrendMemoryRec
     schemaVersion: 2 as const,
   });
   await saveExpiringMemory(key as `amy2:${string}`, record);
+  await addToExpiryIndex(TREND_INDEX, key, record.expiresAt);
   return record;
 }
 
