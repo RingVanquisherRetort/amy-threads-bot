@@ -922,7 +922,7 @@ async function startOutreach(topic: string | null) {
         await markThreadSeen(String(post.id));
         skippedCount++;
         const reason = draft.rationale || 'AI не указал причину';
-        rejectionNotes.push(`@ ${author}: ${reason} | ${String(post.text).slice(0, 140).replace(/\\s+/g, ' ')}`);
+        rejectionNotes.push(`@ ${author}: ${reason} | ${String(post.text).slice(0, 140).replace(/\s+/g, ' ')}`);
         continue;
       }
 
