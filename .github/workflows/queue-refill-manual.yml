@@ -1,0 +1,25 @@
+name: Queue refill (manual, drafts only)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  refill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Generate drafts and send to Telegram for approval
+        env:
+          VERCEL_URL: ${{ secrets.VERCEL_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -eu
+          test -n "${VERCEL_URL}" || { echo "VERCEL_URL is missing"; exit 1; }
+          test -n "${CRON_SECRET}" || { echo "CRON_SECRET is missing"; exit 1; }
+          code=$(curl -sS -L --max-redirs 5 --max-time 180 \
+            -o /tmp/body.txt -w "%{http_code}" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${VERCEL_URL%/}/api/cron/queue-refill")
+          echo "HTTP ${code}"
+          cat /tmp/body.txt
+          test "${code}" = "200"
