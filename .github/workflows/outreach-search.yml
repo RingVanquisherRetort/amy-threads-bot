@@ -1,0 +1,27 @@
+name: Threads outreach search
+
+# Ищет свежие публичные ветки Threads каждые 6 часов.
+# Сам endpoint ограничивает кандидатов последними 3 днями.
+# Черновики отправляются в Telegram и никогда не публикуются автоматически.
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run outreach search
+        env:
+          VERCEL_URL: ${{ secrets.VERCEL_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -eu
+          code=$(curl -sS --max-time 240 -o /tmp/body.txt -w "%{http_code}" \\
+            -H "Authorization: Bearer ${CRON_SECRET}" \\
+            "${VERCEL_URL}/api/cron/outreach-search")
+          echo "HTTP ${code}"
+          cat /tmp/body.txt
+          test "${code}" = "200"
