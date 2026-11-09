@@ -978,7 +978,8 @@ async function startOutreach(topic: string | null) {
       `<b>Поиск завершён</b>\n` +
       `Проверено публикаций: ${posts.length}\n` +
       `Подготовлено карточек: ${sentCount}\n` +
-      `Отфильтровано: ${skippedCount}\n` +
+      `Отклонено редактором AI: ${skippedCount}\n` +
+      `Дубли: ${diagnostics.duplicate}; старше 30 дней: ${diagnostics.oldDate}; без даты: ${diagnostics.missingDate}; свои: ${diagnostics.ownPost}; некорректные: ${diagnostics.invalid}\n` +
       (sentCount === 0 ? `Подходящих новых веток пока нет. Попробуй другой запрос позже.` : `Все ответы ждут твоего одобрения.`)
     );
   } catch (error) {
