@@ -37,7 +37,8 @@ export async function GET(req: Request) {
 
   // Берём глобальный лок на 4 минуты (меньше maxDuration). Если другой вызов
   // cron уже публикует — выходим, чтобы не опубликовать тот же пост дважды.
-  const gotLock = await acquireLock(AUTOPOST_LOCK, 240).catch(() => true);
+  // Fail closed: if Redis cannot provide a lock, do not publish.
+  const gotLock = await acquireLock(AUTOPOST_LOCK, 240).catch(() => false);
   if (!gotLock) {
     return NextResponse.json({ status: 'busy', reason: 'autopost уже выполняется' });
   }
