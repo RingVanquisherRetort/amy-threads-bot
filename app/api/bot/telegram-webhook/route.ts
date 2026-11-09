@@ -892,24 +892,29 @@ async function startOutreach(topic: string | null) {
 
   try {
     const posts = await searchThreadsPosts(topic);
-    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    // Search results are already sorted by Threads' Recent tab. Keep a generous
+    // 30-day safety window and do not discard quiet/new posts just because they
+    // have zero likes or replies.
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
     const ownUsername = (process.env.THREADS_USERNAME ?? '').toLowerCase().replace(/^@/, '');
-    const candidates = posts
-      .filter((post) => {
-        const created = post.createdAt ? Date.parse(post.createdAt) : NaN;
-        const author = (post.author?.username ?? '').toLowerCase().replace(/^@/, '');
-        return !!post.id && !!post.url && !!post.text &&
-          Number.isFinite(created) && created >= cutoff &&
-          author !== ownUsername &&
-          (post.replyCount ?? 0) + (post.likeCount ?? 0) >= 1;
-      })
-      .sort((a, b) => ((b.replyCount ?? 0) * 3 + (b.likeCount ?? 0)) - ((a.replyCount ?? 0) * 3 + (a.likeCount ?? 0)))
-      .slice(0, 5);
+    const diagnostics = { missingDate: 0, oldDate: 0, ownPost: 0, invalid: 0, duplicate: 0 };
+    const candidates = posts.filter((post) => {
+      const created = post.createdAt ? Date.parse(post.createdAt) : NaN;
+      const author = (post.author?.username ?? '').toLowerCase().replace(/^@/, '');
+      if (!post.id || !post.url || !post.text) { diagnostics.invalid++; return false; }
+      if (!Number.isFinite(created)) { diagnostics.missingDate++; return false; }
+      if (created < cutoff) { diagnostics.oldDate++; return false; }
+      if (author && author === ownUsername) { diagnostics.ownPost++; return false; }
+      return true;
+    }).sort((a, b) =>
+      ((b.replyCount ?? 0) * 3 + (b.likeCount ?? 0)) -
+      ((a.replyCount ?? 0) * 3 + (a.likeCount ?? 0))
+    ).slice(0, 8);
 
     let sentCount = 0;
     let skippedCount = 0;
     for (const post of candidates) {
-      if (await isThreadSeen(String(post.id))) continue;
+      if (await isThreadSeen(String(post.id))) { diagnostics.duplicate++; continue; }
       const author = post.author?.username ?? 'unknown';
       const draft = await generateOutreachReply(post.text ?? '', author);
       if (draft.recommendation !== 'reply' || !draft.comment) {
