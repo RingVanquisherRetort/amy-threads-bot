@@ -51,12 +51,12 @@ export async function GET(req: Request) {
       });
     }
 
-    const normalized = generated.text_en.toLocaleLowerCase('ru').replace(/\\s+/g, ' ').trim();
+    const normalized = generated.text_en.toLocaleLowerCase('ru').replace(/\s+/g, ' ').trim();
     const fingerprint = createHash('sha256').update(normalized).digest('hex');
     const duplicate = queue.some((item) =>
       item.frontmatter.amy2_fingerprint === fingerprint ||
       (item.frontmatter.status === 'posted' &&
-        (item.posts[0] ?? '').toLocaleLowerCase('ru').replace(/\\s+/g, ' ').trim() === normalized)
+        (item.posts[0] ?? '').toLocaleLowerCase('ru').replace(/\s+/g, ' ').trim() === normalized)
     );
     if (duplicate) return NextResponse.json({ status: 'duplicate_rejected' }, { status: 409 });
 
@@ -82,8 +82,8 @@ export async function GET(req: Request) {
       `amy2_evaluated_at: ${yaml(now.toISOString())}`,
       `amy2_source_urls: ${yaml(JSON.stringify(sourceUrls))}`,
       '---',
-    ].join('\\n');
-    const body = `\\n\\n## Пост 1\\n\\n${generated.text_en}\\n`;
+    ].join('\n');
+    const body = `\n\n## Пост 1\n\n${generated.text_en}\n`;
     await putFile(path, frontmatter + body, `amy2: editorially approved ${filename}`);
 
     return NextResponse.json({
