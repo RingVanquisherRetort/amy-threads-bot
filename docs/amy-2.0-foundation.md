@@ -32,3 +32,21 @@ This branch adds an isolated foundation. It does not modify production routes, l
 
 ## Rollout boundary
 Automatic publishing remains disabled by the existing production safety guard. This branch does not change that guard or deployment environment variables. A later rollout requires testing and separate explicit approval.
+
+
+## Implemented in the foundation branch
+
+- `lib/amy-content-memory.ts` provides create/update, get, and list operations for content and trend records.
+- Content and trend records are stored under separate `amy2:content:` and `amy2:trend:` namespaces.
+- Each record receives a 90-day Redis TTL.
+- Sorted-set expiry indexes support bounded namespace listing and remove expired index entries during reads.
+- Record IDs are validated before being used in Redis keys.
+- Scores are validated in the 0..100 range.
+- Legacy queue, draft, outreach, and production publishing keys are not read or modified by these APIs.
+
+## Verification status
+
+- Source files were reviewed after writing.
+- GitHub branch comparison confirms changes are isolated from `main`.
+- Typecheck, lint, and build have not yet been executed in this environment.
+- No live Redis write/read test has been performed.
