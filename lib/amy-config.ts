@@ -22,7 +22,7 @@ export const AMY_CONFIG = {
     contentMix: { humor_observations: 0.35, courier_topics: 0.25, discussions_provocations: 0.20, brand_recruitment: 0.20 },
     repeatWindowDays: 7,
     trendLookbackDays: 3,
-    postsAuto: true,
+    publishingMode: 'auto_after_editorial_validation',
     commentsRequireManualApproval: true,
     incomeMessaging: {
       blanketBlock: false,
