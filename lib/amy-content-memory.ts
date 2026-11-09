@@ -1,6 +1,6 @@
 // CRUD для Content Memory и Trend Memory Amy 2.0.
 // Хранилище изолировано в amy2:*; legacy queue/draft/outreach keys не читаются и не меняются.
-import { get, keys } from './redis';
+import { get, cmdRaw } from './redis';
 import { saveExpiringMemory, withMemoryExpiry, isMemoryExpired } from './amy-retention';
 import type { ContentMemoryRecord, TrendMemoryRecord } from './amy-memory-types';
 
@@ -9,6 +9,20 @@ type TrendInput = Omit<TrendMemoryRecord, 'createdAt' | 'updatedAt' | 'expiresAt
 
 const CONTENT_PREFIX = 'amy2:content:';
 const TREND_PREFIX = 'amy2:trend:';
+const CONTENT_INDEX = 'amy2:index:content';
+const TREND_INDEX = 'amy2:index:trend';
+
+async function addToExpiryIndex(index: string, key: string, expiresAt: string): Promise<void> {
+  const score = Date.parse(expiresAt);
+  if (!Number.isFinite(score)) throw new Error('Invalid memory expiry date');
+  await cmdRaw(['ZADD', index, score, key]);
+}
+
+async function listFromExpiryIndex(index: string, now = Date.now()): Promise<string[]> {
+  // Удаляем из индекса только истёкшие ссылки. Сам индекс и legacy-ключи не трогаем.
+  await cmdRaw(['ZREMRANGEBYSCORE', index, '-inf', now]);
+  return (await cmdRaw(['ZRANGEBYSCORE', index, now + 1, '+inf'])) as string[];
+}
 
 function assertSafeId(id: string): void {
   if (!/^[a-zA-Z0-9_-]{1,100}$/.test(id)) {
@@ -58,7 +72,7 @@ export async function getContentMemory(id: string): Promise<ContentMemoryRecord 
 
 export async function listContentMemory(limit = 100): Promise<ContentMemoryRecord[]> {
   const safeLimit = Math.max(1, Math.min(500, Math.floor(limit)));
-  const recordKeys = await keys(CONTENT_PREFIX + '*');
+  const recordKeys = await listFromExpiryIndex(CONTENT_INDEX);
   const records: ContentMemoryRecord[] = [];
   for (const key of recordKeys) {
     const record = await get<ContentMemoryRecord>(key);
@@ -92,7 +106,7 @@ export async function getTrendMemory(id: string): Promise<TrendMemoryRecord | nu
 
 export async function listTrendMemory(limit = 100): Promise<TrendMemoryRecord[]> {
   const safeLimit = Math.max(1, Math.min(500, Math.floor(limit)));
-  const recordKeys = await keys(TREND_PREFIX + '*');
+  const recordKeys = await listFromExpiryIndex(TREND_INDEX);
   const records: TrendMemoryRecord[] = [];
   for (const key of recordKeys) {
     const record = await get<TrendMemoryRecord>(key);
