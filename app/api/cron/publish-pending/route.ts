@@ -1,10 +1,5 @@
 // Периодически публикует диалоги со status=scheduled_publish, у которых publish_at в прошлом.
 import { NextResponse } from 'next/server';
-import { listDuePublish, saveDialog } from '@/lib/dialog';
-import { translateToEnglish } from '@/lib/openrouter';
-import { createThreadsComment } from '@/lib/zernio';
-import { editMessageText } from '@/lib/telegram';
-import { formatDialog } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -12,8 +7,7 @@ export const maxDuration = 60;
 function verifyAuth(req: Request): boolean {
   const auth = req.headers.get('authorization') ?? '';
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
-  return auth === `Bearer ${secret}`;
+  return !!secret && auth === `Bearer ${secret}`;
 }
 
 export async function GET(req: Request) {
