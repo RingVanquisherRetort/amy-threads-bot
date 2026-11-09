@@ -12,7 +12,6 @@ import {
   ContentGoal,
   GOAL_SPECS,
   pickNextGoal,
-  DEFAULT_MIX,
 } from './content-strategy';
 import {
   buildCastdevContextFromTemplate,
