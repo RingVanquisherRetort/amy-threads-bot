@@ -19,9 +19,9 @@ function verifyAuth(req: Request): boolean {
 export async function GET(req: Request) {
   if (!verifyAuth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-  // SAFETY LOCK: ответы не публикуются автоматически до завершения миграции
-  // и отдельного подтверждения владельца. Telegram approval flow остаётся закрытым.
-  if (process.env.ZERNIO_MIGRATION_COMPLETE !== '1' || process.env.THREADS_AUTOPOST_PAUSED === '1') return NextResponse.json({ status: 'paused', reason: 'Threads publishing is disabled' });
+  // Replies must remain manually sent by the owner. This cron is permanently
+  // fail-closed; an environment flag must never turn reply auto-send on.
+  return NextResponse.json({ status: 'paused', reason: 'Replies require manual sending' });
 
   const due = await listDuePublish();
   if (due.length === 0) return NextResponse.json({ published: 0 });
