@@ -11,6 +11,11 @@ export interface ApifyThreadPost {
   repostCount?: number;
   searchQuery?: string | null;
   sourceInput?: string;
+  username?: string;
+  fullName?: string;
+  postId?: string;
+  shortcode?: string;
+  timestamp?: number;
 }
 
 const DEFAULT_QUERIES = [
@@ -55,7 +60,50 @@ export async function searchThreadsPosts(topic?: string | null): Promise<ApifyTh
     throw new Error(`Apify Threads search ${response.status}: ${details}`);
   }
 
-  const data = (await response.json()) as ApifyThreadPost[];
+  const data = (await response.json()) as Array<Record<string, unknown>>;
   if (!Array.isArray(data)) throw new Error("Apify вернул неожиданный формат данных");
-  return data.filter((item) => item && item.type === "post" && item.id && item.url && item.text);
+
+  // The actor's documented output has type/id/url/text, but tolerate
+  // equivalent field names and top-level author fields to avoid silently
+  // dropping valid public posts when the actor output schema evolves.
+  const normalized: ApifyThreadPost[] = [];
+  for (const row of data) {
+    if (!row || typeof row !== "object") continue;
+    const type = String(row.type ?? "post").toLowerCase();
+    if (type !== "post") continue;
+
+    const authorValue = row.author && typeof row.author === "object"
+      ? row.author as Record<string, unknown>
+      : {};
+    const id = String(row.id ?? row.postId ?? row.threadId ?? "").trim();
+    const code = String(row.code ?? row.shortcode ?? "").trim();
+    const url = String(row.url ?? (code && row.username
+      ? `https://www.threads.com/@${String(row.username).replace(/^@/, "")}/post/${code}`
+      : "")).trim();
+    const text = String(row.text ?? row.caption ?? row.content ?? "").trim();
+    const rawDate = row.createdAt ?? (typeof row.timestamp === "number"
+      ? new Date(row.timestamp * 1000).toISOString()
+      : "");
+    const createdAt = String(rawDate ?? "");
+    const username = String(authorValue.username ?? row.username ?? row.authorUsername ?? "").replace(/^@/, "");
+
+    if (!id || !url || !text) continue;
+    normalized.push({
+      type: "post",
+      id,
+      code,
+      url,
+      text,
+      createdAt,
+      author: { username, fullName: String(authorValue.fullName ?? row.fullName ?? "") },
+      likeCount: Number(row.likeCount ?? 0) || 0,
+      replyCount: Number(row.replyCount ?? 0) || 0,
+      repostCount: Number(row.repostCount ?? 0) || 0,
+      searchQuery: row.searchQuery == null ? null : String(row.searchQuery),
+      sourceInput: row.sourceInput == null ? "" : String(row.sourceInput),
+    });
+  }
+  console.info("[Apify Threads] dataset rows:", data.length, "normalized posts:", normalized.length,
+    "sample keys:", Object.keys(data[0] ?? {}).slice(0, 24));
+  return normalized;
 }
