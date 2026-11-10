@@ -5,11 +5,13 @@
 const API = 'https://api.github.com';
 
 function repoEnv() {
-  const owner = process.env.GITHUB_REPO_OWNER ?? 'your-github-org';
-  const repo = process.env.GITHUB_REPO_NAME ?? 'threads-bot';
+  const owner = process.env.GITHUB_REPO_OWNER;
+  const repo = process.env.GITHUB_REPO_NAME;
   const token = process.env.GITHUB_TOKEN;
-  const branch = process.env.GITHUB_BRANCH ?? 'main';
+  const branch = process.env.GITHUB_BRANCH ?? process.env.VERCEL_GIT_COMMIT_REF ?? 'main';
+  if (!owner || !repo) throw new Error('GITHUB_REPO_OWNER и GITHUB_REPO_NAME должны быть заданы явно');
   if (!token) throw new Error('GITHUB_TOKEN не задан');
+  if (!/^[A-Za-z0-9_.-]+$/.test(owner) || !/^[A-Za-z0-9_.-]+$/.test(repo) || !/^[A-Za-z0-9_.\/-]+$/.test(branch)) throw new Error('Некорректная конфигурация GitHub repository/branch');
   return { owner, repo, branch, token };
 }
 

@@ -18,18 +18,39 @@ export interface ApifyThreadPost {
   timestamp?: number;
 }
 
-// Сначала ищем людей с явным интересом к курьерской работе,
-// затем локальную подработку. Общие запросы про удалённую работу убраны.
+// Сначала широкие запросы для проверки доступности поиска Threads,
+// затем локальные фразы. Широкую выдачу дополнительно отфильтрует AI-редактор.
 const DEFAULT_QUERIES = [
-  "ищу работу курьером",
+  "работа",
+  "подработка",
+  "курьер",
+  "ищу работу",
+  "ищу подработку",
+  "работа курьером",
   "курьер Ставрополь",
   "подработка Ставрополь",
-  "ищу подработку Ставрополь",
-  "работа курьером Нальчик",
-  "подработка Нальчик",
-  "курьер Пятигорск",
-  "подработка без опыта Ставрополь",
+  "курьер Нальчик",
+  "подработка Пятигорск",
 ];
+
+const MAX_POST_AGE_MS = 72 * 60 * 60 * 1000;
+
+/**
+ * Apify may return dates like "2026-09-03 08:39:26 UTC"
+ * or ISO timestamps. Missing/invalid dates are rejected deliberately.
+ */
+function isWithinPostAge(createdAt: string, now = Date.now()): boolean {
+  const value = createdAt.trim();
+  if (!value) return false;
+
+  const normalized = value
+    .replace(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})(?:\s*UTC)?$/, "$1T$2Z");
+  const timestamp = Date.parse(normalized);
+  if (!Number.isFinite(timestamp)) return false;
+
+  const age = now - timestamp;
+  return age >= 0 && age <= MAX_POST_AGE_MS;
+}
 
 export async function searchThreadsPosts(topic?: string | null): Promise<ApifyThreadPost[]> {
   const token = process.env.APIFY_API_TOKEN;
@@ -76,6 +97,8 @@ export async function searchThreadsPosts(topic?: string | null): Promise<ApifyTh
   // equivalent field names and top-level author fields to avoid silently
   // dropping valid public posts when the actor output schema evolves.
   const normalized: ApifyThreadPost[] = [];
+  let rejectedByAge = 0;
+
   for (const row of data) {
     if (!row || typeof row !== "object") continue;
     const type = String(row.type ?? "post").toLowerCase();
@@ -97,6 +120,11 @@ export async function searchThreadsPosts(topic?: string | null): Promise<ApifyTh
     const username = String(authorValue.username ?? row.username ?? row.authorUsername ?? "").replace(/^@/, "");
 
     if (!id || !url || !text) continue;
+    if (!isWithinPostAge(createdAt)) {
+      rejectedByAge++;
+      continue;
+    }
+
     normalized.push({
       type: "post",
       id,
@@ -113,6 +141,7 @@ export async function searchThreadsPosts(topic?: string | null): Promise<ApifyTh
     });
   }
   console.info("[Apify Threads] dataset rows:", data.length, "normalized posts:", normalized.length,
+    "rejected by 72h age filter:", rejectedByAge,
     "sample keys:", Object.keys(data[0] ?? {}).slice(0, 24));
   return normalized;
 }

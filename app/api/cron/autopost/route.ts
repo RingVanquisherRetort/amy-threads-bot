@@ -20,13 +20,18 @@ function verifyAuth(req: Request): boolean {
   // Env CRON_SECRET устанавливается автоматически при включении cron.
   const auth = req.headers.get('authorization') ?? '';
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // dev / ручной запуск
+  if (!secret) return false; // fail closed: publishing requires an explicit cron secret
   return auth === `Bearer ${secret}`;
 }
 
 export async function GET(req: Request) {
   if (!verifyAuth(req)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
+  const branch = process.env.GITHUB_BRANCH ?? process.env.VERCEL_GIT_COMMIT_REF ?? '';
+  if (process.env.VERCEL_ENV !== 'production' || branch !== 'main') {
+    return NextResponse.json({ status: 'paused', reason: 'Publishing is restricted to the production main deployment' }, { status: 409 });
   }
 
   // SAFETY LOCK: автопубликация отключена в коде до завершения миграции на Zernio
@@ -37,7 +42,8 @@ export async function GET(req: Request) {
 
   // Берём глобальный лок на 4 минуты (меньше maxDuration). Если другой вызов
   // cron уже публикует — выходим, чтобы не опубликовать тот же пост дважды.
-  const gotLock = await acquireLock(AUTOPOST_LOCK, 240).catch(() => true);
+  // Fail closed: if Redis cannot provide a lock, do not publish.
+  const gotLock = await acquireLock(AUTOPOST_LOCK, 320).catch(() => false);
   if (!gotLock) {
     return NextResponse.json({ status: 'busy', reason: 'autopost уже выполняется' });
   }
@@ -59,18 +65,23 @@ export async function GET(req: Request) {
 
     // Двойная защита: если файл уже помечен опубликованным в Redis (а в репо
     // статус не успел записаться) — не публикуем повторно.
-    const alreadyPosted = await get(postedKey(item.path)).catch(() => null);
+    // Redis errors are fatal here: never publish when duplicate protection is unavailable.
+    const alreadyPosted = await get(postedKey(item.path));
     if (alreadyPosted) {
       return NextResponse.json({ status: 'skipped_duplicate', file: item.path });
     }
+
+    // Reserve the item before the external side effect. If the process crashes
+    // mid-publish, the reservation intentionally blocks retries until reviewed.
+    await setWithTtl(postedKey(item.path), { status: 'publishing', reserved_at: new Date().toISOString() }, 7 * 24 * 3600);
 
     // Публикуем весь тред одним запросом Zernio, чтобы не оставлять
     // частично опубликованную цепочку при сбое между отдельными постами.
     const mediaByPost = item.posts.map((_, index) => extractMediaForPost(item!, index));
     const first = await publishThread(item.posts, mediaByPost);
 
-    // СРАЗУ помечаем файл опубликованным в Redis — до записи статуса в репо.
-    await setWithTtl(postedKey(item.path), { post_id: first.id }, 7 * 24 * 3600).catch(() => {});
+    // Сохраняем ID сразу после подтверждения публикации.
+    await setWithTtl(postedKey(item.path), { status: 'posted', post_id: first.id }, 7 * 24 * 3600);
     const publishedIds: string[] = [first.id];
 
     // Статус в файле и Telegram

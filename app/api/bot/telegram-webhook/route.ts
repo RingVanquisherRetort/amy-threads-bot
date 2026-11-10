@@ -116,6 +116,44 @@ interface TgUpdate {
 // одобрения в боте работать НЕ будут.
 export async function GET(req: Request) {
   const url = new URL(req.url);
+  if (url.searchParams.get('rebind') === '1') {
+    if (process.env.VERCEL_ENV !== 'preview' || process.env.VERCEL_GIT_COMMIT_REF !== 'amy-2.0-foundation') {
+      return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
+    }
+    const expected = process.env.TELEGRAM_WEBHOOK_SECRET;
+    if (!expected || !process.env.TELEGRAM_BOT_TOKEN) {
+      return NextResponse.json({ ok: false, error: 'Telegram secrets are not configured' }, { status: 500 });
+    }
+    try {
+      const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+      if (!bypass) {
+        return NextResponse.json({ ok: false, error: 'Vercel automation bypass is not configured' }, { status: 500 });
+      }
+      const webhookUrl = new URL('/api/bot/telegram-webhook', url.origin);
+      webhookUrl.searchParams.set('x-vercel-protection-bypass', bypass);
+      await setWebhook(webhookUrl.toString(), expected);
+      const token = process.env.TELEGRAM_BOT_TOKEN;
+      const infoResponse = await fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`, { cache: 'no-store' });
+      const infoJson = await infoResponse.json();
+      const info = infoJson?.result ?? {};
+      return NextResponse.json({
+        ok: true,
+        rebound: true,
+        webhookHost: url.host,
+        telegram: {
+          ok: Boolean(infoJson?.ok),
+          urlMatches: info.url === webhookUrl.toString(),
+          pendingUpdateCount: info.pending_update_count ?? null,
+          lastErrorDate: info.last_error_date ?? null,
+          lastErrorMessage: info.last_error_message ?? null,
+          hasCustomCertificate: Boolean(info.has_custom_certificate),
+        },
+      });
+    } catch (error) {
+      return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'setWebhook failed' }, { status: 502 });
+    }
+  }
+
   if (url.searchParams.get('setup') !== '1') {
     return NextResponse.json({
       ok: true,
@@ -137,7 +175,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  if (!verifyWebhookSecret(req)) return NextResponse.json({ error: 'bad secret' }, { status: 401 });
+  if (!verifyWebhookSecret(req)) {
+    console.warn('[telegram-webhook] rejected: secret mismatch or missing');
+    return NextResponse.json({ error: 'bad secret' }, { status: 401 });
+  }
 
   let update: TgUpdate;
   try {
@@ -148,7 +189,20 @@ export async function POST(req: Request) {
 
   const allowedChat = String(process.env.TELEGRAM_CHAT_ID ?? '');
   const chatId = update.message?.chat.id ?? update.callback_query?.message?.chat.id ?? 0;
+  const updateKind = update.callback_query ? 'callback_query' : update.message?.photo ? 'photo' : update.message?.text ? 'text' : 'other';
+  console.info('[telegram-webhook] update received', {
+    updateId: update.update_id,
+    kind: updateKind,
+    chatConfigured: Boolean(allowedChat),
+    chatMatches: String(chatId) === allowedChat,
+  });
   if (String(chatId) !== allowedChat) {
+    console.warn('[telegram-webhook] ignored: chat id mismatch', {
+      updateId: update.update_id,
+      chatConfigured: Boolean(allowedChat),
+      receivedChatId: String(chatId),
+      configuredChatId: allowedChat || '(empty)',
+    });
     return NextResponse.json({ ok: true, ignored: 'chat not allowed' });
   }
 

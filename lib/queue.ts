@@ -137,7 +137,9 @@ export async function nextDraft(): Promise<QueueItem | null> {
   const items = await listQueue();
   for (const item of items) {
     const status = String(item.frontmatter.status ?? '').toLowerCase();
-    if (status === '' || status === 'draft') return item;
+    if (status === 'draft' && item.frontmatter.amy2_publish_eligible === true &&
+        item.frontmatter.amy2_editorial_decision === 'publish_eligible' &&
+        Number(item.frontmatter.amy2_editorial_score) >= 60) return item;
   }
   return null;
 }
