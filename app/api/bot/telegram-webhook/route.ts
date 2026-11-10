@@ -116,6 +116,23 @@ interface TgUpdate {
 // одобрения в боте работать НЕ будут.
 export async function GET(req: Request) {
   const url = new URL(req.url);
+  if (url.searchParams.get('rebind') === '1') {
+    if (process.env.VERCEL_ENV !== 'preview' || process.env.VERCEL_GIT_COMMIT_REF !== 'amy-2.0-foundation') {
+      return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
+    }
+    const expected = process.env.TELEGRAM_WEBHOOK_SECRET;
+    if (!expected || !process.env.TELEGRAM_BOT_TOKEN) {
+      return NextResponse.json({ ok: false, error: 'Telegram secrets are not configured' }, { status: 500 });
+    }
+    try {
+      const webhookUrl = `${url.origin}/api/bot/telegram-webhook`;
+      await setWebhook(webhookUrl, expected);
+      return NextResponse.json({ ok: true, rebound: true, webhookHost: url.host });
+    } catch (error) {
+      return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'setWebhook failed' }, { status: 502 });
+    }
+  }
+
   if (url.searchParams.get('setup') !== '1') {
     return NextResponse.json({
       ok: true,
