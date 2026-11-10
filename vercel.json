@@ -2,6 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
+      "path": "/api/cron/outreach-search",
+      "schedule": "0 8 * * *"
+    },
+    {
       "path": "/api/cron/queue-refill",
       "schedule": "0 9 * * *"
     },
