@@ -54,6 +54,7 @@ import {
   deletePhotoPending,
 } from '@/lib/photo-pending';
 import { publishImage } from '@/lib/threads';
+import { getThreadsAccountHealth } from '@/lib/zernio';
 import {
   getOutreachItem,
   saveOutreachItem,
@@ -515,6 +516,7 @@ async function handleCommand(text: string) {
         `/edit — редактировать последний опубликованный пост\n` +
         `/generate [subscribe|discovery|brand] — сгенерить пост\n` +
         `/publish-test — одноразово опубликовать утверждённый тестовый пост (если включено)\n` +
+        `/zernio-health — проверить подключение Zernio без публикации\n` +
         `/outreach [тема] — найти чужие треды и предложить комменты с CTA\n` +
         `/analyze — прогнать анализ архива прямо сейчас (не ждать понедельника)\n` +
         `/register &lt;url&gt; — зарегистрировать пост, опубликованный руками\n` +
@@ -545,6 +547,38 @@ async function handleCommand(text: string) {
 
   if (cmd === '/generate' || cmd === '/gen') {
     return await startGenerate(args[0]);
+  }
+
+  if (cmd === '/zernio-health') {
+    await sendTelegram('🔎 Проверяю подключение Zernio. Ничего не публикую…');
+    try {
+      const health = await getThreadsAccountHealth();
+      const tokenValid = health.tokenStatus?.valid;
+      const canPost = health.permissions?.canPost;
+      const missing = health.permissions?.missingRequired ?? [];
+      const issues = health.issues ?? [];
+      const recommendations = health.recommendations ?? [];
+      const ready = health.status?.toLowerCase() === 'healthy' && tokenValid === true && canPost === true && missing.length === 0 && issues.length === 0;
+      const lines = [
+        '<b>Проверка Zernio</b>',
+        `Аккаунт: <b>@${escape(health.username ?? 'не указан')}</b>`,
+        `Платформа: ${escape(health.platform ?? 'неизвестна')}`,
+        `Статус: <b>${escape(health.status ?? 'неизвестен')}</b>`,
+        `Токен действителен: ${tokenValid === true ? 'да' : tokenValid === false ? 'нет' : 'неизвестно'}`,
+        `Разрешена публикация: ${canPost === true ? 'да' : canPost === false ? 'нет' : 'неизвестно'}`,
+        `Обязательные настройки отсутствуют: ${missing.length ? escape(missing.join(', ')) : 'нет'}`,
+        `Проблемы: ${issues.length ? escape(issues.slice(0, 5).join('; ')) : 'не обнаружены'}`,
+        `Рекомендации: ${recommendations.length ? escape(recommendations.slice(0, 4).join('; ')) : 'нет'}`,
+        '',
+        ready ? '✅ <b>Zernio готов к тестовой публикации.</b>' : '⚠️ <b>Готовность пока не подтверждена.</b>',
+        'Это только проверка статуса. Публикация не запускалась.'
+      ];
+      await sendTelegram(lines.join('\n'), { disablePreview: true });
+    } catch (e: any) {
+      const message = String(e?.message ?? e).replace(/Bearer\s+\S+/gi, 'Bearer [скрыто]').slice(0, 350);
+      await sendTelegram('<b>⚠️ Не удалось проверить Zernio.</b>\n<pre>' + escape(message) + '</pre>\nНичего не опубликовано.');
+    }
+    return;
   }
 
   if (cmd === '/publish-test') {
