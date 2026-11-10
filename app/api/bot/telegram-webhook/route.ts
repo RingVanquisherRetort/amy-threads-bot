@@ -125,8 +125,13 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: 'Telegram secrets are not configured' }, { status: 500 });
     }
     try {
-      const webhookUrl = `${url.origin}/api/bot/telegram-webhook`;
-      await setWebhook(webhookUrl, expected);
+      const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+      if (!bypass) {
+        return NextResponse.json({ ok: false, error: 'Vercel automation bypass is not configured' }, { status: 500 });
+      }
+      const webhookUrl = new URL('/api/bot/telegram-webhook', url.origin);
+      webhookUrl.searchParams.set('x-vercel-protection-bypass', bypass);
+      await setWebhook(webhookUrl.toString(), expected);
       const token = process.env.TELEGRAM_BOT_TOKEN;
       const infoResponse = await fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`, { cache: 'no-store' });
       const infoJson = await infoResponse.json();
@@ -137,7 +142,7 @@ export async function GET(req: Request) {
         webhookHost: url.host,
         telegram: {
           ok: Boolean(infoJson?.ok),
-          urlMatches: info.url === webhookUrl,
+          urlMatches: info.url === webhookUrl.toString(),
           pendingUpdateCount: info.pending_update_count ?? null,
           lastErrorDate: info.last_error_date ?? null,
           lastErrorMessage: info.last_error_message ?? null,
