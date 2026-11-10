@@ -9,6 +9,25 @@ export const maxDuration = 60;
 
 const MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
 
+// Only propose replies when the author explicitly mentions a supported city.
+// This intentionally favors precision over recall: we cannot infer location
+// reliably from a Threads profile or a generic Russian-language post.
+const TARGET_CITY_PATTERNS = [
+  /\\bкалининград(?:е|а|у|ом|ский|ская|ские)?\\b/i,
+  /\\bекатеринбург(?:е|а|у|ом|ский|ская|ские)?\\b/i,
+  /\\bуф(?:а|е|ы|у|ой|е)?\\b/i,
+  /\\bставропол(?:ь|е|я|ю|ем|ьский|ьская)?\\b/i,
+  /\\bнальчик(?:е|а|у|ом)?\\b/i,
+  /\\bпятигорск(?:е|а|у|ом)?\\b/i,
+];
+const JOB_INTENT = /(?:ищу|ищем|нужна|нужен|нужно|подскажите|посоветуйте|где найти|кто знает|есть ли|хочу найти|ищет|ищут|интересует|рассмотрю|рассматриваю|требуется|нуждаюсь)[\\s\\S]{0,90}(?:работ[аыуе]|подработк[аыуе]|ваканси[яию]|заработок|курьер)|(?:работ[аыуе]|подработк[аыуе]|ваканси[яию]|курьер)[\\s\\S]{0,90}(?:ищу|ищем|нужна|нужен|подскажите|посоветуйте|где найти|хочу|интересует|рассмотрю)/i;
+const EXCLUDED_INTENT = /(?:ищем сотрудников|ищем курьеров|требуется сотрудник|требуются сотрудники|набираем сотрудников|приглашаем на работу|вакансия открыта|удал[её]нн(?:ая|ую|ой) работ|онлайн.работ)/i;
+
+function isRelevantCandidate(text: string): boolean {
+  return TARGET_CITY_PATTERNS.some((pattern) => pattern.test(text)) &&
+    JOB_INTENT.test(text) && !EXCLUDED_INTENT.test(text);
+}
+
 function escapeHtml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -38,7 +57,7 @@ export async function GET(req: Request) {
     const posts = await searchThreadsPosts(null);
     const cutoff = Date.now() - MAX_AGE_MS;
     const own = (process.env.THREADS_USERNAME ?? '').toLowerCase().replace(/^@/, '');
-    const fresh = posts
+    const freshPosts = posts
       .filter((post) => {
         const created = post.createdAt ? Date.parse(post.createdAt) : NaN;
         const author = (post.author?.username ?? '').toLowerCase().replace(/^@/, '');
@@ -46,8 +65,9 @@ export async function GET(req: Request) {
           Number.isFinite(created) && created >= cutoff &&
           (!author || author !== own);
       })
-      .sort((a, b) => ((b.replyCount ?? 0) * 3 + (b.likeCount ?? 0)) - ((a.replyCount ?? 0) * 3 + (a.likeCount ?? 0)))
-      .slice(0, 6);
+      .sort((a, b) => Date.parse(b.createdAt ?? '') - Date.parse(a.createdAt ?? ''));
+    const relevant = freshPosts.filter((post) => isRelevantCandidate(post.text ?? ''));
+    const fresh = relevant.slice(0, 6);
 
     let drafted = 0;
     let rejected = 0;
@@ -111,12 +131,12 @@ export async function GET(req: Request) {
       `<b>Ежедневный мониторинг Threads завершён</b>\n` +
       `Окно поиска: последние 3 дня\n` +
       `Получено от Apify: ${posts.length}\n` +
-      `Свежих кандидатов: ${fresh.length}\n` +
+      `Свежих публикаций: ${freshPosts.length}; подходят по городу и запросу: ${relevant.length}\n` +
       `Черновиков: ${drafted}; отклонено AI: ${rejected}; дублей: ${duplicates}\n` +
       (notes.length ? `Причины пропуска: ${notes.map(escapeHtml).join('; ')}\n` : '') +
       (drafted ? 'Черновики отправлены выше. Публикация только вручную.' : 'Новых подходящих веток за этот запуск не найдено.')
     );
-    return NextResponse.json({ ok: true, fetched: posts.length, fresh: fresh.length, drafted, rejected, duplicates });
+    return NextResponse.json({ ok: true, fetched: posts.length, fresh: freshPosts.length, relevant: relevant.length, shortlisted: fresh.length, drafted, rejected, duplicates });
   } catch (error) {
     job.status = 'failed';
     job.error = String(error).slice(0, 500);
