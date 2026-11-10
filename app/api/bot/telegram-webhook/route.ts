@@ -445,6 +445,10 @@ const ONEOFF_TEST_POST_PATH = 'queue/2026-11-10-amy-brand.md';
 const ONEOFF_TEST_LOCK = 'lock:oneoff-test-publish';
 
 async function publishOneoffTestPost() {
+  if (!isThreadsPublishingEnabled()) {
+    await sendTelegram('⛔ Публикация заблокирована: сначала нужно подтвердить готовность Zernio и снять общую блокировку публикаций.');
+    return;
+  }
   if (process.env.ONEOFF_TEST_PUBLISH_ENABLED !== '1') {
     await sendTelegram('⛔ Одноразовая тестовая публикация пока не включена. Обычный автопостинг остаётся заблокирован.');
     return;
