@@ -38,8 +38,9 @@ import {
   writeWeakSignals,
   CONFIRMED_THRESHOLD,
 } from '@/lib/weekly-analysis';
-import { listQueue } from '@/lib/queue';
-import { deletePost, publishText } from '@/lib/threads';
+import { extractMediaForPost, listQueue, markPosted } from '@/lib/queue';
+import { deletePost, publishText, publishThread } from '@/lib/threads';
+import { acquireLock, releaseLock, get, setWithTtl } from '@/lib/redis';
 import { generatePost } from '@/lib/post-generator';
 import { generateOutreachReply } from '@/lib/outreach-generator';
 import { searchThreadsPosts } from '@/lib/apify-threads';
@@ -439,6 +440,66 @@ async function handleDraftCorrection(draftId: string, userText: string) {
   }
 }
 
+
+const ONEOFF_TEST_POST_PATH = 'queue/2026-11-10-amy-brand.md';
+const ONEOFF_TEST_LOCK = 'lock:oneoff-test-publish';
+
+async function publishOneoffTestPost() {
+  if (process.env.ONEOFF_TEST_PUBLISH_ENABLED !== '1') {
+    await sendTelegram('⛔ Одноразовая тестовая публикация пока не включена. Обычный автопостинг остаётся заблокирован.');
+    return;
+  }
+
+  const lock = await acquireLock(ONEOFF_TEST_LOCK, 240).catch(() => false);
+  if (!lock) {
+    await sendTelegram('⏳ Тестовая публикация уже выполняется. Повторять команду не нужно.');
+    return;
+  }
+
+  try {
+    const item = (await listQueue()).find((entry) => entry.path === ONEOFF_TEST_POST_PATH);
+    if (!item) {
+      await sendTelegram('⛔ Тестовый файл не найден. Ничего не опубликовано.');
+      return;
+    }
+    if (String(item.frontmatter.status ?? '').toLowerCase() !== 'draft') {
+      await sendTelegram('⛔ Тестовый файл уже обработан или имеет неожиданный статус. Ничего не опубликовано.');
+      return;
+    }
+    if (item.posts.length !== 1 || !item.posts[0] || item.posts[0].length > 500) {
+      await sendTelegram('⛔ Проверка тестового поста не пройдена: ожидается ровно один непустой пост до 500 символов.');
+      return;
+    }
+
+    const key = `posted:${item.path}`;
+    if (await get(key).catch(() => ({ unavailable: true }))) {
+      await sendTelegram('⛔ Для этого файла уже есть отметка публикации. Повторный запуск заблокирован.');
+      return;
+    }
+
+    await sendTelegram('🚀 Запускаю только утверждённый тестовый пост. Ежедневный автопостинг не включается.');
+    const media = [extractMediaForPost(item, 0)];
+    const published = await publishThread(item.posts, media);
+    await setWithTtl(key, { post_id: published.id, oneoff: true }, 30 * 24 * 3600);
+    const publishedAt = new Date().toISOString().replace('T', ' ').slice(0, 16);
+    await markPosted(item, {
+      post_id: published.id,
+      permalink: published.permalink,
+      published_at: publishedAt,
+    });
+    await sendTelegram(
+      '<b>✅ Тестовая публикация выполнена</b>\\n' +
+      '<a href="' + escape(published.permalink) + '">Открыть пост в Threads</a>\\n' +
+      'Ежедневный автопостинг остался выключен.',
+      { disablePreview: true }
+    );
+  } catch (e: any) {
+    await sendTelegram('<b>⚠️ Ошибка тестовой публикации:</b>\\n<pre>' + escape(String(e).slice(0, 500)) + '</pre>');
+  } finally {
+    await releaseLock(ONEOFF_TEST_LOCK).catch(() => {});
+  }
+}
+
 async function handleCommand(text: string) {
   const [cmd, ...args] = text.split(/\s+/);
 
@@ -448,6 +509,7 @@ async function handleCommand(text: string) {
         `/preview — показать ближайшие 3 драфта из очереди\n` +
         `/edit — редактировать последний опубликованный пост\n` +
         `/generate [subscribe|discovery|brand] — сгенерить пост\n` +
+        `/publish-test — одноразово опубликовать утверждённый тестовый пост (если включено)\n` +
         `/outreach [тема] — найти чужие треды и предложить комменты с CTA\n` +
         `/analyze — прогнать анализ архива прямо сейчас (не ждать понедельника)\n` +
         `/register &lt;url&gt; — зарегистрировать пост, опубликованный руками\n` +
@@ -478,6 +540,10 @@ async function handleCommand(text: string) {
 
   if (cmd === '/generate' || cmd === '/gen') {
     return await startGenerate(args[0]);
+  }
+
+  if (cmd === '/publish-test') {
+    return await publishOneoffTestPost();
   }
 
   if (cmd === '/analyze') {
