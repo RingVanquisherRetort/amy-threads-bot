@@ -127,7 +127,23 @@ export async function GET(req: Request) {
     try {
       const webhookUrl = `${url.origin}/api/bot/telegram-webhook`;
       await setWebhook(webhookUrl, expected);
-      return NextResponse.json({ ok: true, rebound: true, webhookHost: url.host });
+      const token = process.env.TELEGRAM_BOT_TOKEN;
+      const infoResponse = await fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`, { cache: 'no-store' });
+      const infoJson = await infoResponse.json();
+      const info = infoJson?.result ?? {};
+      return NextResponse.json({
+        ok: true,
+        rebound: true,
+        webhookHost: url.host,
+        telegram: {
+          ok: Boolean(infoJson?.ok),
+          urlMatches: info.url === webhookUrl,
+          pendingUpdateCount: info.pending_update_count ?? null,
+          lastErrorDate: info.last_error_date ?? null,
+          lastErrorMessage: info.last_error_message ?? null,
+          hasCustomCertificate: Boolean(info.has_custom_certificate),
+        },
+      });
     } catch (error) {
       return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'setWebhook failed' }, { status: 502 });
     }
