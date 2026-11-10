@@ -18,17 +18,16 @@ export interface ApifyThreadPost {
   timestamp?: number;
 }
 
-// Сначала ищем людей с явным интересом к курьерской работе,
-// затем локальную подработку. Общие запросы про удалённую работу убраны.
+// Threads search returns very few results for long city-specific phrases.
+// Use broad intent keywords for recall; freshness and relevance are filtered
+// by the outreach pipeline before anything reaches Telegram.
 const DEFAULT_QUERIES = [
-  "ищу работу курьером",
-  "курьер Ставрополь",
-  "подработка Ставрополь",
-  "ищу подработку Ставрополь",
-  "работа курьером Нальчик",
-  "подработка Нальчик",
-  "курьер Пятигорск",
-  "подработка без опыта Ставрополь",
+  "ищу работу",
+  "ищу подработку",
+  "нужна работа",
+  "подработка",
+  "работа курьером",
+  "курьер",
 ];
 
 export async function searchThreadsPosts(topic?: string | null): Promise<ApifyThreadPost[]> {
@@ -52,11 +51,11 @@ export async function searchThreadsPosts(topic?: string | null): Promise<ApifyTh
       },
       body: JSON.stringify({
         searchQueries: queries,
-        searchSort: "both",
-        maxPostsPerSource: 25,
+        searchSort: "recent",
+        maxPostsPerSource: 10,
         includeProfiles: false,
         includeReplies: false,
-        maxItems: 100,
+        maxItems: 80,
         proxyConfiguration: { useApifyProxy: true },
       }),
       cache: "no-store",
