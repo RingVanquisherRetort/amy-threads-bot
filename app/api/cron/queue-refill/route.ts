@@ -21,13 +21,15 @@ function verifyAuth(req: Request): boolean {
 }
 
 function normalizePost(text: string): string {
-  return text.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/[^\\p{L}\\p{N}]+/gu, ' ').trim();
+  return text.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
 
 function buildQueueFilename(suggested: string, existingPaths: Set<string>, index: number): string {
-  if (!existingPaths.has(`queue/${suggested}`)) return suggested;
-  const suffix = `${Date.now().toString(36)}-${index + 1}`;
-  return suggested.replace(/\\.md$/i, `-${suffix}.md`);
+  if (!existingPaths.has(\`queue/\${suggested}\`)) return suggested;
+  const suffix = \`\${Date.now().toString(36)}-\${index + 1}\`;
+  return suggested.toLowerCase().endsWith('.md')
+    ? \`\${suggested.slice(0, -3)}-\${suffix}.md\`
+    : \`\${suggested}-\${suffix}.md\`;
 }
 
 function validateGeneratedText(text: string, existingPosts: Set<string>): string | null {
@@ -79,15 +81,15 @@ export async function GET(req: Request) {
         const today = new Date().toISOString().slice(0, 10);
         const frontmatter = [
           '---',
-          `created: ${today}`,
-          `goal: ${gen.goal}`,
-          ...(gen.castdev_module ? [`castdev_module: ${JSON.stringify(gen.castdev_module)}`] : []),
+          \`created: \${today}\`,
+          \`goal: \${gen.goal}\`,
+          ...(gen.castdev_module ? [\`castdev_module: \${JSON.stringify(gen.castdev_module)}\`] : []),
           'pillar: amy_generated',
           'status: draft',
-          `notes: ${JSON.stringify((gen.rationale ?? '').slice(0, 180))}`,
+          \`notes: \${JSON.stringify((gen.rationale ?? '').slice(0, 180))}\`,
           '---',
-        ].join('\\n');
-        await putFile(`queue/${filename}`, `${frontmatter}\\n\\n## Пост 1\\n\\n${gen.text_en}\\n`, `amy auto-queued: ${filename}`);
+        ].join('\n');
+        await putFile(\`queue/\${filename}\`, \`\${frontmatter}\n\n## Пост 1\n\n\${gen.text_en}\n\`, \`amy auto-queued: \${filename}\`);
         existingPaths.add(`queue/${filename}`);
         existingPosts.add(normalizePost(gen.text_en));
         generated.push(`${gen.goal}: ${filename}`);
