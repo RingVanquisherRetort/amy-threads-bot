@@ -553,7 +553,7 @@ async function runQueueRefillNow() {
       `Публикации в Threads не запускались.`
     );
   } catch (error) {
-    const message = String(error).replace(/Bearer\\s+\\S+/gi, 'Bearer [скрыто]').slice(0, 400);
+    const message = String(error).replace(/Bearer\s+\S+/gi, 'Bearer [скрыто]').slice(0, 400);
     await sendTelegram(`<b>⚠️ Не удалось пополнить очередь</b>\n<pre>${escape(message)}</pre>\nПубликации не запускались.`);
   }
 }
