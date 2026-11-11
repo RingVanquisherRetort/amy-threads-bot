@@ -4,8 +4,6 @@ goal: discovery
 castdev_module: M1_barriers
 pillar: amy_generated
 status: draft
-media:
-  - type: image
     path: /media/pp_mwass37g_c6aae/photo-1794321646584.jpg
     alt: cover
 ---
