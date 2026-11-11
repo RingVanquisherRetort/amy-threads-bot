@@ -5,6 +5,7 @@
 //   - Кнопки на правках поста (pe_publish / pe_more / pe_cancel)
 //   - Текстовые сообщения: правка драфта коммента ИЛИ правка поста
 import { NextResponse } from 'next/server';
+import { GET as runQueueRefillCron } from '@/app/api/cron/queue-refill/route';
 import { handleAt } from '@/lib/brand-config';
 import { answerCallbackQuery, editMessageText, sendTelegram, setWebhook } from '@/lib/telegram';
 import { formatDialog, formatDraft, formatPostEdit, formatPreview } from '@/lib/format';
@@ -69,7 +70,7 @@ import {
 } from '@/lib/outreach';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const PUBLISH_DELAY_MIN = 5;
 
@@ -506,6 +507,57 @@ async function publishOneoffTestPost() {
   }
 }
 
+async function runQueueRefillNow() {
+  // Команда доступна только из уже проверенного Telegram-чата.
+  // CRON_SECRET используется внутри процесса и никогда не передаётся пользователю.
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    await sendTelegram('⛔ Ручной запуск остановлен: в Production не настроен CRON_SECRET. Ничего не запускала.');
+    return;
+  }
+
+  await sendTelegram('⚙️ Запускаю пополнение очереди. Это создаёт только черновики, публикации в Threads не будет…');
+  try {
+    const response = await runQueueRefillCron(new Request('https://internal.local/api/cron/queue-refill', {
+      method: 'GET',
+      headers: { authorization: `Bearer ${secret}` },
+    }));
+    const result = await response.json() as {
+      status?: string;
+      message?: string;
+      queue_drafts?: number;
+      pending_approval?: number;
+      generated?: string[];
+      rejected?: string[];
+      errors?: string[];
+    };
+
+    if (!response.ok) {
+      await sendTelegram(`⛔ Пополнение завершилось с HTTP ${response.status}. Проверь логи Vercel. Публикации не запускались.`);
+      return;
+    }
+
+    if (result.status === 'ok') {
+      await sendTelegram(`ℹ️ ${result.message ?? 'Очередь уже заполнена.'}\nПубликации в Threads не было.`);
+      return;
+    }
+
+    await sendTelegram(
+      `<b>Ручное пополнение завершено</b>\n` +
+      `Статус: ${escape(result.status ?? 'unknown')}\n` +
+      `Черновиков в очереди до запуска: ${result.queue_drafts ?? 0}\n` +
+      `Ожидали одобрения: ${result.pending_approval ?? 0}\n` +
+      `Создано: ${result.generated?.length ?? 0}\n` +
+      `Отклонено проверкой: ${result.rejected?.length ?? 0}\n` +
+      `Ошибок: ${result.errors?.length ?? 0}\n\n` +
+      `Публикации в Threads не запускались.`
+    );
+  } catch (error) {
+    const message = String(error).replace(/Bearer\\s+\\S+/gi, 'Bearer [скрыто]').slice(0, 400);
+    await sendTelegram(`<b>⚠️ Не удалось пополнить очередь</b>\n<pre>${escape(message)}</pre>\nПубликации не запускались.`);
+  }
+}
+
 async function handleCommand(text: string) {
   const [cmd, ...args] = text.split(/\s+/);
 
@@ -515,6 +567,7 @@ async function handleCommand(text: string) {
         `/preview — показать ближайшие 3 драфта из очереди\n` +
         `/edit — редактировать последний опубликованный пост\n` +
         `/generate [subscribe|discovery|brand] — сгенерить пост\n` +
+        `/refill — вручную пополнить очередь черновиков (без публикации)\n` +
         `/publish-test — одноразово опубликовать утверждённый тестовый пост (если включено)\n` +
         `/zernio-health — проверить подключение Zernio без публикации\n` +
         `/outreach [тема] — найти чужие треды и предложить комменты с CTA\n` +
@@ -539,6 +592,10 @@ async function handleCommand(text: string) {
     });
     await sendTelegram(formatPreview(drafts.slice(0, 3)), { disablePreview: true });
     return;
+  }
+
+  if (cmd === '/refill') {
+    return await runQueueRefillNow();
   }
 
   if (cmd === '/edit') {
