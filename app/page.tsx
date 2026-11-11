@@ -62,6 +62,70 @@ export default function Home() {
 
       <footer className="footer wrap"><a className="brand" href="#"><span className="brand-mark">a</span><span>amy <b>2.0</b></span></a><span>AI-маркетинг для реальных задач.</span><span>© 2026 Amy 2.0</span></footer>
 
+const features = [
+  { n: '01', title: 'Находит аудиторию', text: 'Отслеживает открытые обсуждения и сигналы интереса по заданным темам, городам и ключевым словам.' },
+  { n: '02', title: 'Создаёт контент', text: 'Готовит публикации и ответы в голосе бренда, учитывая контекст и редакционные правила.' },
+  { n: '03', title: 'Работает по расписанию', text: 'Формирует очередь контента и публикует через подключённые платформы с управляемыми ограничениями.' },
+  { n: '04', title: 'Считает результат', text: 'Помогает видеть путь от охвата и реакции до обращения, регистрации и целевого действия.' },
+];
+
+const useCases = [
+  'Подбор персонала и поиск исполнителей',
+  'Локальный бизнес и услуги',
+  'Агентства и маркетинговые команды',
+  'Онлайн-магазины и сервисы',
+];
+
+export default function Home() {
+  return (
+    <main className="site-shell">
+      <nav className="nav wrap">
+        <a className="brand" href="#" aria-label="Amy 2.0 — главная"><span className="brand-mark">a</span><span>amy <b>2.0</b></span></a>
+        <div className="nav-links"><a href="#platform">Платформа</a><a href="#how">Как работает</a><a href="#business">Для бизнеса</a></div>
+        <a className="nav-cta" href="#contact">Обсудить проект <span>↗</span></a>
+      </nav>
+
+      <section className="hero wrap">
+        <div className="hero-copy">
+          <div className="eyebrow"><i /> AI-МАРКЕТИНГОВАЯ СИСТЕМА</div>
+          <h1>Маркетинг,<br/><em>который работает,</em><br/>пока вы заняты бизнесом.</h1>
+          <p className="hero-lead">Amy 2.0 помогает находить аудиторию, создавать контент, вести коммуникацию и измерять результат. Не ещё один генератор текстов, а рабочий процесс в одной системе.</p>
+          <div className="hero-actions"><a className="button button-primary" href="#contact">Обсудить внедрение <span>↗</span></a><a className="text-link" href="#platform">Изучить возможности <span>↓</span></a></div>
+          <div className="hero-note"><span className="pulse" /> Начинаем с пилотных проектов и реальных задач бизнеса</div>
+        </div>
+        <div className="hero-visual" aria-label="Схема работы Amy 2.0">
+          <div className="visual-glow" />
+          <div className="orbit orbit-one" /><div className="orbit orbit-two" />
+          <div className="core"><span className="core-symbol">a.</span><small>AMY ENGINE</small><b>AI CORE</b></div>
+          <div className="node node-top"><span>⌕</span><div><b>Поиск</b><small>сигналы и аудитория</small></div></div>
+          <div className="node node-right"><span>✳</span><div><b>Контент</b><small>посты и ответы</small></div></div>
+          <div className="node node-bottom"><span>↗</span><div><b>Результат</b><small>метрики и воронка</small></div></div>
+          <div className="visual-caption">ОТ ИДЕИ ДО ИЗМЕРИМОГО ДЕЙСТВИЯ</div>
+        </div>
+      </section>
+
+      <section className="trust-strip"><div className="wrap strip-inner"><span>ОДНА СИСТЕМА</span><b>Поиск</b><i>✳</i><b>Контент</b><i>✳</i><b>Коммуникация</b><i>✳</i><b>Аналитика</b></div></section>
+
+      <section className="section wrap" id="platform">
+        <div className="section-heading"><div><div className="eyebrow">ВОЗМОЖНОСТИ</div><h2>Не просто генерирует.<br/><em>Доводит до действия.</em></h2></div><p>Amy объединяет несколько маркетинговых задач в последовательный процесс, который можно адаптировать под нишу, аудиторию и цели компании.</p></div>
+        <div className="feature-grid">{features.map((f) => <article className="feature-card" key={f.n}><div className="feature-top"><span>{f.n}</span><b>↗</b></div><h3>{f.title}</h3><p>{f.text}</p></article>)}</div>
+      </section>
+
+      <section className="dark-section" id="how"><div className="wrap process-wrap">
+        <div className="eyebrow light">ПОНЯТНЫЙ ПРОЦЕСС</div><h2>От задачи бизнеса<br/>до <em>понятной системы.</em></h2>
+        <div className="process-grid"><div><span>01 / НАСТРОЙКА</span><h3>Понимаем задачу</h3><p>Определяем аудиторию, площадки, тон общения и целевое действие.</p></div><div><span>02 / ЗАПУСК</span><h3>Подключаем процессы</h3><p>Настраиваем поиск, контент, очередь публикаций и уведомления.</p></div><div><span>03 / ОПТИМИЗАЦИЯ</span><h3>Смотрим на цифры</h3><p>Проверяем качество лидов, реакции и конверсию. Улучшаем то, что не работает.</p></div></div>
+      </div></section>
+
+      <section className="section wrap business-section" id="business">
+        <div className="eyebrow">ГДЕ ПРИМЕНЯТЬ</div><h2>Подстраивается под<br/><em>ваш тип бизнеса.</em></h2>
+        <div className="usecase-list">{useCases.map((u,i)=><div className="usecase" key={u}><span>0{i+1}</span><b>{u}</b><i>↗</i></div>)}</div>
+        <p className="fine-print">Сценарии и доступные интеграции зависят от площадок, разрешений аккаунтов и задач проекта. Возможности, которые ещё не запущены, не выдаём за готовый функционал.</p>
+      </section>
+
+      <section className="contact-section" id="contact"><div className="wrap contact-inner"><div><div className="eyebrow light">ПЕРВЫЙ ШАГ</div><h2>Давайте найдём,<br/><em>что Amy сделает для вас.</em></h2><p>Расскажите, как вы привлекаете клиентов сейчас. Обсудим пилот, подходящие площадки и измеримый результат.</p></div><a className="button button-light" href="https://www.threads.net/@zumer_courier" target="_blank" rel="noreferrer">Написать в Threads <span>↗</span></a></div></section>
+
+      <footer className="footer wrap"><a className="brand" href="#"><span className="brand-mark">a</span><span>amy <b>2.0</b></span></a><span>AI-маркетинг для реальных задач.</span><span>© 2026 Amy 2.0</span></footer>
+
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
         :root{--ink:#171522;--muted:#777487;--violet:#7655e8;--line:#e9e7ef;--paper:#faf9fc}
