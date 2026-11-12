@@ -10,7 +10,20 @@ interface TelegramUpdate {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  if (url.searchParams.get('setup') === '1') {
+    return new Response(`<!doctype html>
+<html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Подключение Telegram Зумер</title>
+<body style="font:16px system-ui;max-width:520px;margin:40px auto;padding:0 20px">
+<h2>Подключить Telegram Зумер</h2>
+<p>Введи значение ZUMER_TELEGRAM_WEBHOOK_SECRET, сохранённое в Vercel. Оно отправится защищённым POST-запросом и не попадёт в адресную строку.</p>
+<form method="post" action="/api/bot/zumer-webhook/setup">
+<input type="password" name="secret" autocomplete="off" required style="box-sizing:border-box;width:100%;padding:14px;font-size:16px">
+<button style="margin-top:16px;padding:14px 20px;font-size:16px">Подключить Telegram</button>
+</form></body></html>`, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
+  }
   return NextResponse.json({
     ok: true,
     service: 'zumer-telegram-webhook',
