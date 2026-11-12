@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     body: JSON.stringify({
       url: webhookUrl.toString(),
       secret_token: expectedSecret,
-      allowed_updates: ['message'],
+      allowed_updates: ['message', 'callback_query'],
     }),
     cache: 'no-store',
   });
