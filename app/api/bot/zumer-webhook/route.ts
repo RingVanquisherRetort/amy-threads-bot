@@ -25,6 +25,8 @@ interface TelegramUpdate {
   };
 }
 
+const NL = String.fromCharCode(10);
+
 function verifyAdmin(chatId: number): boolean {
   return Boolean(process.env.ZUMER_TELEGRAM_ADMIN_CHAT_ID) &&
     String(chatId) === String(process.env.ZUMER_TELEGRAM_ADMIN_CHAT_ID);
@@ -61,7 +63,6 @@ export async function POST(request: Request) {
   try { update = await request.json() as TelegramUpdate; }
   catch { return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 }); }
 
-  // Telegram получает 200 OK сразу, длительная генерация продолжается в фоне.
   const handle = async () => {
     try {
       if (update.callback_query) {
@@ -73,20 +74,24 @@ export async function POST(request: Request) {
         }
         const data = cb.data ?? '';
         if (data === 'zumer:reject') {
-          await editZumerTelegram(message.chat.id, message.message_id, '🗑 Черновик отклонён. Ничего не опубликовано.');
+          await editZumerTelegram(message.chat.id, message.message_id, 'Черновик отклонён. Ничего не опубликовано.');
           await answerZumerCallback(cb.id, 'Черновик отклонён');
           return;
         }
         if (data === 'zumer:approve') {
-          const marker = 'ТЕКСТ ПОСТА:\\n';
-          const index = message.text?.indexOf(marker) ?? -1;
-          const post = index >= 0 ? message.text!.slice(index + marker.length).trim() : '';
+          const marker = 'ТЕКСТ ПОСТА:' + NL;
+          const footer = NL + NL + 'Публиковать в @zumer_rabota?';
+          const start = message.text?.indexOf(marker) ?? -1;
+          const end = message.text?.lastIndexOf(footer) ?? -1;
+          const post = start >= 0 && end > start
+            ? message.text!.slice(start + marker.length, end).trim()
+            : '';
           if (!post) {
             await answerZumerCallback(cb.id, 'Не удалось прочитать текст черновика');
             return;
           }
           await sendZumerChannelMessage(post);
-          await editZumerTelegram(message.chat.id, message.message_id, `✅ Опубликовано в @zumer_rabota.\\n\\n${message.text!.slice(index + marker.length).trim()}`);
+          await editZumerTelegram(message.chat.id, message.message_id, 'Опубликовано в @zumer_rabota.' + NL + NL + post);
           await answerZumerCallback(cb.id, 'Опубликовано в канал');
         }
         return;
@@ -98,16 +103,17 @@ export async function POST(request: Request) {
 
       if (text === '/start' || text.startsWith('/start ')) {
         await sendZumerTelegram(message.chat.id,
-          'Привет! Это Зумер 👋\\n\\nЯ AI-маркетолог проекта. Отправь /id, чтобы узнать свой Telegram ID. После настройки доступа сможешь вызывать /generate для создания черновиков.');
+          ['Привет! Это Зумер 👋', '', 'Я AI-маркетолог проекта. Отправь /id, чтобы узнать свой Telegram ID. После настройки доступа сможешь вызывать /generate для создания черновиков.'].join(NL));
         return;
       }
       if (text === '/id') {
-        await sendZumerTelegram(message.chat.id, `Твой Telegram ID: ${message.chat.id}\\nОтправь это число в настройки Vercel как ZUMER_TELEGRAM_ADMIN_CHAT_ID. Само число не является секретом.`);
+        await sendZumerTelegram(message.chat.id,
+          ['Твой Telegram ID: ' + message.chat.id, 'Добавь это число в Vercel как ZUMER_TELEGRAM_ADMIN_CHAT_ID. Само число не является секретом.'].join(NL));
         return;
       }
       if (text === '/help') {
         await sendZumerTelegram(message.chat.id,
-          'Команды Зумера:\\n/id - показать Telegram ID\\n/generate - создать черновик поста\\n/generate тема - написать пост на заданную тему\\n\\nПубликация происходит только после твоего подтверждения.');
+          ['Команды Зумера:', '/id - показать Telegram ID', '/generate - создать черновик поста', '/generate тема - написать пост на заданную тему', '', 'Публикация происходит только после твоего подтверждения.'].join(NL));
         return;
       }
       if (text === '/generate' || text.startsWith('/generate ')) {
@@ -119,20 +125,28 @@ export async function POST(request: Request) {
           await sendZumerTelegram(message.chat.id, 'Не найден ключ генерации. Добавь ZUMER_OPENROUTER_API_KEY в Vercel → Settings → Environment Variables для Preview-ветки amy-2.0-foundation.');
           return;
         }
-        await sendZumerTelegram(message.chat.id, '✍️ Готовлю черновик Зумера. Это займёт немного времени...');
-        const topic = text.replace(/^\\/generate\\s*/i, '').trim();
+        await sendZumerTelegram(message.chat.id, 'Готовлю черновик Зумера. Это займёт немного времени...');
+        const topic = text.slice('/generate'.length).trim();
         const draft = await generateZumerDraft(topic);
-        const approvalText = `📝 ЧЕРНОВИК ЗУМЕРА\\nРубрика: ${draft.note}\\n\\nТЕКСТ ПОСТА:\\n${draft.text}\\n\\nПубликовать в @zumer_rabota?`;
+        const approvalText = [
+          'ЧЕРНОВИК ЗУМЕРА',
+          'Рубрика: ' + draft.note,
+          '',
+          'ТЕКСТ ПОСТА:',
+          draft.text,
+          '',
+          'Публиковать в @zumer_rabota?',
+        ].join(NL);
         await sendZumerTelegram(message.chat.id, approvalText, [[
-          { text: '✅ Опубликовать', callback_data: 'zumer:approve' },
-          { text: '🗑 Отклонить', callback_data: 'zumer:reject' },
+          { text: 'Опубликовать', callback_data: 'zumer:approve' },
+          { text: 'Отклонить', callback_data: 'zumer:reject' },
         ]]);
       }
     } catch (error) {
       console.error('[zumer-webhook]', error);
       const chatId = update.message?.chat.id ?? update.callback_query?.message?.chat.id;
       if (chatId) {
-        try { await sendZumerTelegram(chatId, `⚠️ Не удалось выполнить действие: ${error instanceof Error ? error.message : 'ошибка'}`); } catch {}
+        try { await sendZumerTelegram(chatId, 'Не удалось выполнить действие: ' + (error instanceof Error ? error.message : 'ошибка')); } catch {}
       }
     }
   };
