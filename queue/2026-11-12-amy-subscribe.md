@@ -1,9 +1,14 @@
 ---
-created: 2026-11-12
+created: 2026-11-12T00:00:00.000Z
 goal: subscribe
 pillar: amy_generated
-status: draft
-notes: "subscribe / узнаваемая городская деталь без выдуманных фактов, голос с послевкусием"
+status: posted
+notes: >-
+  subscribe / узнаваемая городская деталь без выдуманных фактов, голос с
+  послевкусием
+published_at: '2026-11-12 12:15'
+threads_post_id: '18121338967969191'
+threads_url: 'https://www.threads.com/@zumer_courier/post/DfpCJxJCnGo'
 ---
 
 ## Пост 1
