@@ -1,9 +1,14 @@
 ---
-created: 2026-11-24
+created: 2026-11-24T00:00:00.000Z
 goal: subscribe
 pillar: amy_generated
-status: draft
-notes: "subscribe; собирательная сценка узнавания без псевдофактов, одна чёткая деталь с послевкусием"
+status: posted
+notes: >-
+  subscribe; собирательная сценка узнавания без псевдофактов, одна чёткая деталь
+  с послевкусием
+published_at: '2026-11-24 12:15'
+threads_post_id: '17884214547627728'
+threads_url: 'https://www.threads.com/@zumer_courier/post/DgH7sP4DWaD'
 ---
 
 ## Пост 1
