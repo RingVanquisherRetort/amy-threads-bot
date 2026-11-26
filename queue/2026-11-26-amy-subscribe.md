@@ -1,9 +1,14 @@
 ---
-created: 2026-11-26
+created: 2026-11-26T00:00:00.000Z
 goal: subscribe
 pillar: amy_generated
-status: draft
-notes: "наблюдение о рабочей коммуникации; узнаваемо, без выдуманных фактов, без повтора тем"
+status: posted
+notes: >-
+  наблюдение о рабочей коммуникации; узнаваемо, без выдуманных фактов, без
+  повтора тем
+published_at: '2026-11-26 12:15'
+threads_post_id: '18039934943660650'
+threads_url: 'https://www.threads.com/@zumer_courier/post/DgNFSHtjAyw'
 ---
 
 ## Пост 1
